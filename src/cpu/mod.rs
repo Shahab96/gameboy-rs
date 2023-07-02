@@ -115,7 +115,7 @@ impl CPU {
     }
 
     fn adc(&mut self, value: Byte) -> Byte {
-        let carry_flag = self.registers.f.carry as u8;
+        let carry_flag = self.registers.f.carry as Byte;
 
         // We will use wrapping_add here because we don't care about the overflow
         let new_value = self
@@ -134,7 +134,7 @@ impl CPU {
     }
 
     fn sbc(&mut self, value: Byte) -> Byte {
-        let carry_flag = self.registers.f.carry as u8;
+        let carry_flag = self.registers.f.carry as Byte;
 
         // We will use wrapping_sub here because we don't care about the overflow
         let new_value = self
@@ -234,7 +234,7 @@ impl CPU {
     }
 
     fn rra(&mut self) {
-        let carry_flag = self.registers.f.carry as u8;
+        let carry_flag = self.registers.f.carry as Byte;
 
         self.registers.a = (self.registers.a >> 1) | (carry_flag << 7);
 
@@ -245,7 +245,7 @@ impl CPU {
     }
 
     fn rla(&mut self) {
-        let carry_flag = self.registers.f.carry as u8;
+        let carry_flag = self.registers.f.carry as Byte;
 
         self.registers.a = (self.registers.a << 1) | carry_flag;
 
@@ -364,5 +364,311 @@ impl CPU {
 
         self.registers.f.subtract = false;
         self.registers.f.half_carry = false;
+    }
+
+    fn rr(&mut self, target: ArithmeticTarget) {
+        let carry_flag = self.registers.f.carry as Byte;
+
+        match target {
+            ArithmeticTarget::A => {
+                self.registers.a = (self.registers.a >> 1) | (carry_flag << 7);
+                self.registers.f.zero = self.registers.a == 0;
+                self.registers.f.carry = self.registers.a & 0x01 != 0;
+            }
+            ArithmeticTarget::B => {
+                self.registers.b = (self.registers.b >> 1) | (carry_flag << 7);
+                self.registers.f.zero = self.registers.b == 0;
+                self.registers.f.carry = self.registers.b & 0x01 != 0;
+            }
+            ArithmeticTarget::C => {
+                self.registers.c = (self.registers.c >> 1) | (carry_flag << 7);
+                self.registers.f.zero = self.registers.c == 0;
+                self.registers.f.carry = self.registers.c & 0x01 != 0;
+            }
+            ArithmeticTarget::D => {
+                self.registers.d = (self.registers.d >> 1) | (carry_flag << 7);
+                self.registers.f.zero = self.registers.d == 0;
+                self.registers.f.carry = self.registers.d & 0x01 != 0;
+            }
+            ArithmeticTarget::E => {
+                self.registers.e = (self.registers.e >> 1) | (carry_flag << 7);
+                self.registers.f.zero = self.registers.e == 0;
+                self.registers.f.carry = self.registers.e & 0x01 != 0;
+            }
+            ArithmeticTarget::H => {
+                self.registers.h = (self.registers.h >> 1) | (carry_flag << 7);
+                self.registers.f.zero = self.registers.h == 0;
+                self.registers.f.carry = self.registers.h & 0x01 != 0;
+            }
+            ArithmeticTarget::L => {
+                self.registers.l = (self.registers.l >> 1) | (carry_flag << 7);
+                self.registers.f.zero = self.registers.l == 0;
+                self.registers.f.carry = self.registers.l & 0x01 != 0;
+            }
+        };
+
+        self.registers.f.subtract = false;
+        self.registers.f.half_carry = false;
+    }
+
+    fn rl(&mut self, target: ArithmeticTarget) {
+        let carry_flag = self.registers.f.carry as Byte;
+
+        match target {
+            ArithmeticTarget::A => {
+                self.registers.a = (self.registers.a << 1) | carry_flag;
+                self.registers.f.zero = self.registers.a == 0;
+                self.registers.f.carry = self.registers.a & 0x80 != 0;
+            }
+            ArithmeticTarget::B => {
+                self.registers.b = (self.registers.b << 1) | carry_flag;
+                self.registers.f.zero = self.registers.b == 0;
+                self.registers.f.carry = self.registers.b & 0x80 != 0;
+            }
+            ArithmeticTarget::C => {
+                self.registers.c = (self.registers.c << 1) | carry_flag;
+                self.registers.f.zero = self.registers.c == 0;
+                self.registers.f.carry = self.registers.c & 0x80 != 0;
+            }
+            ArithmeticTarget::D => {
+                self.registers.d = (self.registers.d << 1) | carry_flag;
+                self.registers.f.zero = self.registers.d == 0;
+                self.registers.f.carry = self.registers.d & 0x80 != 0;
+            }
+            ArithmeticTarget::E => {
+                self.registers.e = (self.registers.e << 1) | carry_flag;
+                self.registers.f.zero = self.registers.e == 0;
+                self.registers.f.carry = self.registers.e & 0x80 != 0;
+            }
+            ArithmeticTarget::H => {
+                self.registers.h = (self.registers.h << 1) | carry_flag;
+                self.registers.f.zero = self.registers.h == 0;
+                self.registers.f.carry = self.registers.h & 0x80 != 0;
+            }
+            ArithmeticTarget::L => {
+                self.registers.l = (self.registers.l << 1) | carry_flag;
+                self.registers.f.zero = self.registers.l == 0;
+                self.registers.f.carry = self.registers.l & 0x80 != 0;
+            }
+        };
+
+        self.registers.f.subtract = false;
+        self.registers.f.half_carry = false;
+    }
+
+    fn rrc(&mut self, target: ArithmeticTarget) {
+        match target {
+            ArithmeticTarget::A => {
+                self.registers.a = self.registers.a.rotate_right(1);
+                self.registers.f.zero = self.registers.a == 0;
+                self.registers.f.carry = self.registers.a & 0x01 != 0;
+            }
+            ArithmeticTarget::B => {
+                self.registers.b = self.registers.b.rotate_right(1);
+                self.registers.f.zero = self.registers.b == 0;
+                self.registers.f.carry = self.registers.b & 0x01 != 0;
+            }
+            ArithmeticTarget::C => {
+                self.registers.c = self.registers.c.rotate_right(1);
+                self.registers.f.zero = self.registers.c == 0;
+                self.registers.f.carry = self.registers.c & 0x01 != 0;
+            }
+            ArithmeticTarget::D => {
+                self.registers.d = self.registers.d.rotate_right(1);
+                self.registers.f.zero = self.registers.d == 0;
+                self.registers.f.carry = self.registers.d & 0x01 != 0;
+            }
+            ArithmeticTarget::E => {
+                self.registers.e = self.registers.e.rotate_right(1);
+                self.registers.f.zero = self.registers.e == 0;
+                self.registers.f.carry = self.registers.e & 0x01 != 0;
+            }
+            ArithmeticTarget::H => {
+                self.registers.h = self.registers.h.rotate_right(1);
+                self.registers.f.zero = self.registers.h == 0;
+                self.registers.f.carry = self.registers.h & 0x01 != 0;
+            }
+            ArithmeticTarget::L => {
+                self.registers.l = self.registers.l.rotate_right(1);
+                self.registers.f.zero = self.registers.l == 0;
+                self.registers.f.carry = self.registers.l & 0x01 != 0;
+            }
+        };
+
+        self.registers.f.subtract = false;
+        self.registers.f.half_carry = false;
+    }
+
+    fn rlc(&mut self, target: ArithmeticTarget) {
+        match target {
+            ArithmeticTarget::A => {
+                self.registers.a = self.registers.a.rotate_left(1);
+                self.registers.f.zero = self.registers.a == 0;
+                self.registers.f.carry = self.registers.a & 0x80 != 0;
+            }
+            ArithmeticTarget::B => {
+                self.registers.b = self.registers.b.rotate_left(1);
+                self.registers.f.zero = self.registers.b == 0;
+                self.registers.f.carry = self.registers.b & 0x80 != 0;
+            }
+            ArithmeticTarget::C => {
+                self.registers.c = self.registers.c.rotate_left(1);
+                self.registers.f.zero = self.registers.c == 0;
+                self.registers.f.carry = self.registers.c & 0x80 != 0;
+            }
+            ArithmeticTarget::D => {
+                self.registers.d = self.registers.d.rotate_left(1);
+                self.registers.f.zero = self.registers.d == 0;
+                self.registers.f.carry = self.registers.d & 0x80 != 0;
+            }
+            ArithmeticTarget::E => {
+                self.registers.e = self.registers.e.rotate_left(1);
+                self.registers.f.zero = self.registers.e == 0;
+                self.registers.f.carry = self.registers.e & 0x80 != 0;
+            }
+            ArithmeticTarget::H => {
+                self.registers.h = self.registers.h.rotate_left(1);
+                self.registers.f.zero = self.registers.h == 0;
+                self.registers.f.carry = self.registers.h & 0x80 != 0;
+            }
+            ArithmeticTarget::L => {
+                self.registers.l = self.registers.l.rotate_left(1);
+                self.registers.f.zero = self.registers.l == 0;
+                self.registers.f.carry = self.registers.l & 0x80 != 0;
+            }
+        };
+
+        self.registers.f.subtract = false;
+        self.registers.f.half_carry = false;
+    }
+
+    fn sra(&mut self, target: ArithmeticTarget) {
+        match target {
+            ArithmeticTarget::A => {
+                let sign_bit = self.registers.a & 0x80;
+                self.registers.f.carry = self.registers.a & 0x01 != 0;
+                self.registers.a = (self.registers.a >> 1) | sign_bit;
+                self.registers.f.zero = self.registers.a == 0;
+            }
+            ArithmeticTarget::B => {
+                let sign_bit = self.registers.b & 0x80;
+                self.registers.f.carry = self.registers.b & 0x01 != 0;
+                self.registers.b = (self.registers.b >> 1) | sign_bit;
+                self.registers.f.zero = self.registers.b == 0;
+            }
+            ArithmeticTarget::C => {
+                let sign_bit = self.registers.c & 0x80;
+                self.registers.f.carry = self.registers.c & 0x01 != 0;
+                self.registers.c = (self.registers.c >> 1) | sign_bit;
+                self.registers.f.zero = self.registers.c == 0;
+            }
+            ArithmeticTarget::D => {
+                let sign_bit = self.registers.d & 0x80;
+                self.registers.f.carry = self.registers.d & 0x01 != 0;
+                self.registers.d = (self.registers.d >> 1) | sign_bit;
+                self.registers.f.zero = self.registers.d == 0;
+            }
+            ArithmeticTarget::E => {
+                let sign_bit = self.registers.e & 0x80;
+                self.registers.f.carry = self.registers.e & 0x01 != 0;
+                self.registers.e = (self.registers.e >> 1) | sign_bit;
+                self.registers.f.zero = self.registers.e == 0;
+            }
+            ArithmeticTarget::H => {
+                let sign_bit = self.registers.h & 0x80;
+                self.registers.f.carry = self.registers.h & 0x01 != 0;
+                self.registers.h = (self.registers.h >> 1) | sign_bit;
+                self.registers.f.zero = self.registers.h == 0;
+            }
+            ArithmeticTarget::L => {
+                let sign_bit = self.registers.l & 0x80;
+                self.registers.f.carry = self.registers.l & 0x01 != 0;
+                self.registers.l = (self.registers.l >> 1) | sign_bit;
+                self.registers.f.zero = self.registers.l == 0;
+            }
+        };
+
+        self.registers.f.subtract = false;
+        self.registers.f.half_carry = false;
+    }
+
+    fn sla(&mut self, target: ArithmeticTarget) {
+        match target {
+            ArithmeticTarget::A => {
+                self.registers.f.carry = self.registers.a & 0x80 != 0;
+                self.registers.a <<= 1;
+                self.registers.f.zero = self.registers.a == 0;
+            }
+            ArithmeticTarget::B => {
+                self.registers.f.carry = self.registers.b & 0x80 != 0;
+                self.registers.b <<= 1;
+                self.registers.f.zero = self.registers.b == 0;
+            }
+            ArithmeticTarget::C => {
+                self.registers.f.carry = self.registers.c & 0x80 != 0;
+                self.registers.c <<= 1;
+                self.registers.f.zero = self.registers.c == 0;
+            }
+            ArithmeticTarget::D => {
+                self.registers.f.carry = self.registers.d & 0x80 != 0;
+                self.registers.d <<= 1;
+                self.registers.f.zero = self.registers.d == 0;
+            }
+            ArithmeticTarget::E => {
+                self.registers.f.carry = self.registers.e & 0x80 != 0;
+                self.registers.e <<= 1;
+                self.registers.f.zero = self.registers.e == 0;
+            }
+            ArithmeticTarget::H => {
+                self.registers.f.carry = self.registers.h & 0x80 != 0;
+                self.registers.h <<= 1;
+                self.registers.f.zero = self.registers.h == 0;
+            }
+            ArithmeticTarget::L => {
+                self.registers.f.carry = self.registers.l & 0x80 != 0;
+                self.registers.l <<= 1;
+                self.registers.f.zero = self.registers.l == 0;
+            }
+        };
+
+        self.registers.f.subtract = false;
+        self.registers.f.half_carry = false;
+    }
+
+    fn swap(&mut self, target: ArithmeticTarget) {
+        match target {
+            ArithmeticTarget::A => {
+                self.registers.a = (self.registers.a << 4) | (self.registers.a >> 4);
+                self.registers.f.zero = self.registers.a == 0;
+            }
+            ArithmeticTarget::B => {
+                self.registers.b = (self.registers.b << 4) | (self.registers.b >> 4);
+                self.registers.f.zero = self.registers.b == 0;
+            }
+            ArithmeticTarget::C => {
+                self.registers.c = (self.registers.c << 4) | (self.registers.c >> 4);
+                self.registers.f.zero = self.registers.c == 0;
+            }
+            ArithmeticTarget::D => {
+                self.registers.d = (self.registers.d << 4) | (self.registers.d >> 4);
+                self.registers.f.zero = self.registers.d == 0;
+            }
+            ArithmeticTarget::E => {
+                self.registers.e = (self.registers.e << 4) | (self.registers.e >> 4);
+                self.registers.f.zero = self.registers.e == 0;
+            }
+            ArithmeticTarget::H => {
+                self.registers.h = (self.registers.h << 4) | (self.registers.h >> 4);
+                self.registers.f.zero = self.registers.h == 0;
+            }
+            ArithmeticTarget::L => {
+                self.registers.l = (self.registers.l << 4) | (self.registers.l >> 4);
+                self.registers.f.zero = self.registers.l == 0;
+            }
+        };
+
+        self.registers.f.subtract = false;
+        self.registers.f.half_carry = false;
+        self.registers.f.carry = false;
     }
 }
