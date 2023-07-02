@@ -1,23 +1,47 @@
-use super::{instructions::ArithmeticTarget, Byte, Word};
+// The operations represented by the following functions are described here:
+// https://gbdev.io/pandocs/CPU_Registers_and_Flags.html#the-flags-register-lower-8-bits-of-af-register
+const ZERO_FLAG: u8 = 0b1000_0000;
+const SUBTRACT_FLAG: u8 = 0b0100_0000;
+const HALF_CARRY_FLAG: u8 = 0b0010_0000;
+const CARRY_FLAG: u8 = 0b0001_0000;
 
-pub(super) struct Registers {
-    pub(super) a: Byte,
-    pub(super) b: Byte,
-    pub(super) c: Byte,
-    pub(super) d: Byte,
-    pub(super) e: Byte,
-    // The F register is a special one, see the FlagRegister struct below
-    pub(super) f: FlagRegister,
-    pub(super) h: Byte,
-    pub(super) l: Byte,
+#[derive(Copy, Clone)]
+pub struct Registers {
+    // Program counter
+    pub pc: u16,
+
+    // Stack pointer
+    pub sp: u16,
+
+    // The 8-bit registers
+    data: [u8; 8],
+}
+
+pub struct Flags {
+    pub zero: bool,
+    pub subtract: bool,
+    pub half_carry: bool,
+    pub carry: bool,
+}
+
+#[derive(Copy, Clone)]
+pub enum Reg8 {
+    A,
+    B,
+    C,
+    D,
+    E,
+    F,
+    H,
+    L,
 }
 
 /*
- * We will implement getters and setters for the BC, DE and HL registers, since they are used
+ * We will implement getters and setters for the AF, BC, DE and HL registers, since they are used
  * for 16-bit arithmetic operations.
  *
- * B, D and H are the high bytes of the BC, DE and HL registers respectively.
- * C, E and L are the low bytes of the BC, DE and HL registers respectively.
+ * A, B, D and H are the high bytes of the AF, BC, DE and HL registers respectively.
+ * F, C, E and L are the low bytes of the AF, BC, DE and HL registers respectively.
  *
  * To get the value of a 16-bit register, we need to shift the high byte 8 bits to the left and
  * OR it with the low byte.
@@ -26,110 +50,103 @@ pub(super) struct Registers {
  * and AND it with 0xFF to get the high byte. Then we need to AND the lower 8 bits with the
  * provided value to get the low byte.
  */
+#[derive(Copy, Clone)]
+pub enum Reg16 {
+    AF,
+    BC,
+    DE,
+    HL,
+}
+
 impl Registers {
-    fn get_word(&self, high_byte: Byte, low_byte: Byte) -> Word {
-        (high_byte as Word) << 8 | (low_byte as Word)
+    pub fn new() -> Self {
+        Self {
+            pc: 0,
+            sp: 0,
+            data: [0; 8],
+        }
     }
 
-    fn set_word(&self, value: Word) -> (Byte, Byte) {
-        let high = ((value & 0xFF00) >> 8) as Byte;
-        let low = (value & 0x00FF) as Byte;
-
-        (high, low)
-    }
-
-    fn get_bc(&self) -> Word {
-        self.get_word(self.b, self.c)
-    }
-
-    fn set_bc(&mut self, value: Word) {
-        let (high, low) = self.set_word(value);
-
-        self.b = high;
-        self.c = low;
-    }
-
-    fn get_de(&self) -> Word {
-        self.get_word(self.d, self.e)
-    }
-
-    fn set_de(&mut self, value: Word) {
-        let (high, low) = self.set_word(value);
-
-        self.d = high;
-        self.e = low;
-    }
-
-    pub(crate) fn get_hl(&self) -> Word {
-        self.get_word(self.h, self.l)
-    }
-
-    pub(crate) fn set_hl(&mut self, value: Word) {
-        let (high, low) = self.set_word(value);
-
-        self.h = high;
-        self.l = low;
-    }
-
-    pub(crate) fn get_byte(&self, register: ArithmeticTarget) -> Byte {
+    pub fn read(&self, register: Reg8) -> u8 {
         match register {
-            ArithmeticTarget::A => self.a,
-            ArithmeticTarget::B => self.b,
-            ArithmeticTarget::C => self.c,
-            ArithmeticTarget::D => self.d,
-            ArithmeticTarget::E => self.e,
-            ArithmeticTarget::H => self.h,
-            ArithmeticTarget::L => self.l,
+            Reg8::A => self.data[0],
+            Reg8::B => self.data[1],
+            Reg8::C => self.data[2],
+            Reg8::D => self.data[3],
+            Reg8::E => self.data[4],
+            Reg8::F => self.data[5],
+            Reg8::H => self.data[6],
+            Reg8::L => self.data[7],
         }
     }
-}
 
-// This struct abstracts the operations on the flag register
-pub(super) struct FlagRegister {
-    pub(super) zero: bool,
-    pub(super) subtract: bool,
+    pub fn read16(&self, register: Reg16) -> u16 {
+        match register {
+            Reg16::AF => ((self.data[0] as u16) << 8) | (self.data[5] as u16),
+            Reg16::BC => ((self.data[1] as u16) << 8) | (self.data[2] as u16),
+            Reg16::DE => ((self.data[3] as u16) << 8) | (self.data[4] as u16),
+            Reg16::HL => ((self.data[6] as u16) << 8) | (self.data[7] as u16),
+        }
+    }
 
-    /*
-     * Half Carry is set if adding the lower nibbles of the value and register A
-     * together result in a value bigger than 0xF. If the result is larger than 0xF
-     * than the addition caused a carry from the lower nibble to the upper nibble.
-     */
-    pub(super) half_carry: bool,
-    pub(super) carry: bool,
-}
+    pub fn write(&mut self, register: Reg8, value: u8) {
+        match register {
+            Reg8::A => self.data[0] = value,
+            Reg8::B => self.data[1] = value,
+            Reg8::C => self.data[2] = value,
+            Reg8::D => self.data[3] = value,
+            Reg8::E => self.data[4] = value,
+            Reg8::F => self.data[5] = value,
+            Reg8::H => self.data[6] = value,
+            Reg8::L => self.data[7] = value,
+        }
+    }
 
-// The operations represented by the following functions are described here:
-// https://gbdev.io/pandocs/CPU_Registers_and_Flags.html#the-flags-register-lower-8-bits-of-af-register
-const ZERO_FLAG: Byte = 0b1000_0000;
-const SUBTRACT_FLAG: Byte = 0b0100_0000;
-const HALF_CARRY_FLAG: Byte = 0b0010_0000;
-const CARRY_FLAG: Byte = 0b0001_0000;
+    pub fn write16(&mut self, register: Reg16, value: u16) {
+        match register {
+            Reg16::AF => {
+                self.data[0] = ((value & 0xFF00) >> 8) as u8;
+                self.data[5] = (value & 0x00FF) as u8;
+            }
+            Reg16::BC => {
+                self.data[1] = ((value & 0xFF00) >> 8) as u8;
+                self.data[2] = (value & 0x00FF) as u8;
+            }
+            Reg16::DE => {
+                self.data[3] = ((value & 0xFF00) >> 8) as u8;
+                self.data[4] = (value & 0x00FF) as u8;
+            }
+            Reg16::HL => {
+                self.data[6] = ((value & 0xFF00) >> 8) as u8;
+                self.data[7] = (value & 0x00FF) as u8;
+            }
+        }
+    }
 
-impl std::convert::From<FlagRegister> for Byte {
-    fn from(flag: FlagRegister) -> Byte {
-        // We will construct the byte by performing bitwise operations.
-        let mut result: Byte = 0;
-
-        if flag.zero {
-            // Set the bit at position 7 to 1
-            result |= ZERO_FLAG;
+    pub fn set_flags(&mut self, zero: bool, subtract: bool, half_carry: bool, carry: bool) {
+        if zero {
+            self.data[5] |= ZERO_FLAG;
         }
 
-        if flag.subtract {
-            // Set the bit at position 6 to 1
-            result |= SUBTRACT_FLAG;
+        if subtract {
+            self.data[5] |= SUBTRACT_FLAG;
         }
 
-        if flag.half_carry {
-            // Set the bit at position 5 to 1
-            result |= HALF_CARRY_FLAG;
+        if half_carry {
+            self.data[5] |= HALF_CARRY_FLAG;
         }
 
-        if flag.carry {
-            // Set the bit at position 4 to 1
-            result |= CARRY_FLAG;
+        if carry {
+            self.data[5] |= CARRY_FLAG;
         }
+    }
 
-        result
+    pub fn get_flags(&self) -> Flags {
+        Flags {
+            zero: self.data[5] & ZERO_FLAG != 0,
+            subtract: self.data[5] & SUBTRACT_FLAG != 0,
+            half_carry: self.data[5] & HALF_CARRY_FLAG != 0,
+            carry: self.data[5] & CARRY_FLAG != 0,
+        }
     }
 }
