@@ -1,4 +1,4 @@
-use super::{Byte, Word};
+use super::{instructions::ArithmeticTarget, Byte, Word};
 
 pub(super) struct Registers {
     pub(super) a: Byte,
@@ -69,6 +69,18 @@ impl Registers {
 
         self.h = high;
         self.l = low;
+    }
+
+    pub(crate) fn get_byte(&self, register: ArithmeticTarget) -> Byte {
+        match register {
+            ArithmeticTarget::A => self.a,
+            ArithmeticTarget::B => self.b,
+            ArithmeticTarget::C => self.c,
+            ArithmeticTarget::D => self.d,
+            ArithmeticTarget::E => self.e,
+            ArithmeticTarget::H => self.h,
+            ArithmeticTarget::L => self.l,
+        }
     }
 }
 

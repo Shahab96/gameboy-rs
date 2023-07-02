@@ -17,42 +17,20 @@ struct CPU {
 impl CPU {
     fn execute(&mut self, instruction: Instruction) {
         match instruction {
-            Instruction::ADD(target) => match target {
-                ArithmeticTarget::C => self.registers.a = self.add(self.registers.c),
-                // TODO: Support other registers
-                _ => unimplemented!(),
-            },
-            Instruction::SUB(target) => match target {
-                ArithmeticTarget::C => self.registers.a = self.sub(self.registers.c),
-                // TODO: Support other registers
-                _ => unimplemented!(),
-            },
-            Instruction::AND(target) => match target {
-                ArithmeticTarget::C => self.registers.a = self.and(self.registers.c),
-                // TODO: Support other registers
-                _ => unimplemented!(),
-            },
-            Instruction::OR(target) => match target {
-                ArithmeticTarget::C => self.registers.a = self.or(self.registers.c),
-                // TODO: Support other registers
-                _ => unimplemented!(),
-            },
-            Instruction::XOR(target) => match target {
-                ArithmeticTarget::C => self.registers.a = self.xor(self.registers.c),
-                // TODO: Support other registers
-                _ => unimplemented!(),
-            },
-            Instruction::CP(target) => match target {
-                ArithmeticTarget::C => {
-                    self.sub(self.registers.c);
-
-                    // We merely needed to set the flags, so we can just return an empty unit here
-                    ()
-                }
-                // TODO: Support other registers
-                _ => unimplemented!(),
-            },
-            _ => unimplemented!(),
+            Instruction::ADD(target) => {
+                self.registers.a = self.add(self.registers.get_byte(target))
+            }
+            Instruction::SUB(target) => {
+                self.registers.a = self.sub(self.registers.get_byte(target))
+            }
+            Instruction::AND(target) => {
+                self.registers.a = self.and(self.registers.get_byte(target))
+            }
+            Instruction::OR(target) => self.registers.a = self.or(self.registers.get_byte(target)),
+            Instruction::XOR(target) => {
+                self.registers.a = self.xor(self.registers.get_byte(target))
+            }
+            Instruction::CP(target) => self.cp(self.registers.get_byte(target)),
         }
     }
 
@@ -79,6 +57,10 @@ impl CPU {
         self.registers.f.half_carry = (self.registers.a & 0xF) < (value & 0xF);
 
         new_value
+    }
+
+    fn cp(&mut self, value: Byte) {
+        self.sub(value);
     }
 
     fn and(&mut self, value: Byte) -> Byte {
