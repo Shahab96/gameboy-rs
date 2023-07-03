@@ -7,12 +7,6 @@ const CARRY_FLAG: u8 = 0b0001_0000;
 
 #[derive(Copy, Clone)]
 pub struct Registers {
-    // Program counter
-    pub pc: u16,
-
-    // Stack pointer
-    pub sp: u16,
-
     // The 8-bit registers
     data: [u8; 8],
 }
@@ -60,11 +54,7 @@ pub enum Reg16 {
 
 impl Registers {
     pub fn new() -> Self {
-        Self {
-            pc: 0,
-            sp: 0,
-            data: [0; 8],
-        }
+        Self { data: [0; 8] }
     }
 
     pub fn read(&self, register: Reg8) -> u8 {

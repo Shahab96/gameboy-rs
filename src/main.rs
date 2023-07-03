@@ -8,6 +8,7 @@ use crate::cartridge::header::CartridgeHeader;
 
 mod cartridge;
 mod cpu;
+mod memory;
 
 fn main() -> Result<(), Box<CartridgeError>> {
     let args: Vec<String> = std::env::args().collect();
