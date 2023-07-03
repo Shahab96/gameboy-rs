@@ -9,6 +9,7 @@ use std::path::Path;
 pub enum CartridgeError {
     InvalidLength,
     InvalidFile,
+    InvalidNintendoLogo,
     BadChecksum,
 }
 
@@ -24,6 +25,7 @@ impl Display for CartridgeError {
         match self {
             CartridgeError::InvalidLength => write!(f, "Invalid length"),
             CartridgeError::InvalidFile => write!(f, "Invalid file"),
+            CartridgeError::InvalidNintendoLogo => write!(f, "Invalid Nintendo logo"),
             CartridgeError::BadChecksum => write!(f, "Bad checksum"),
         }
     }
@@ -31,18 +33,13 @@ impl Display for CartridgeError {
 
 impl Error for CartridgeError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            CartridgeError::InvalidLength => Some(self),
-            CartridgeError::InvalidFile => Some(self),
-            CartridgeError::BadChecksum => Some(self),
-        }
+        Some(self)
     }
 }
 
 #[derive(Debug)]
 pub struct CartridgeHeader {
     pub entry: [u8; 4],
-    pub nintendo_logo: [u8; 48],
     pub title: [u8; 16],
     pub manufacturer_code: [u8; 4],
     pub cgb_flag: Option<u8>,
@@ -62,9 +59,8 @@ impl Display for CartridgeHeader {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "Entry: {:?}\nNintendo Logo: {:?}\nTitle: {:?}\nManufacturer Code: {:?}\nCGB Flag: {:?}\nNew Licensee Code: {:?}\nSGB Flag: {:?}\nCartridge Type: {:?}\nROM Size: {:?}\nRAM Size: {:?}\nDestination Code: {:?}\nOld Licensee Code: {:?}\nMask ROM Version Number: {:?}\nHeader Checksum: {:?}\nGlobal Checksum: {:?}",
+            "CartridgeHeader{{\n\tEntry: {:02X?}\n\tTitle: {:?}\n\tManufacturer Code: {:?}\n\tCGB Flag: {:?}\n\tNew Licensee Code: {:?}\n\tSGB Flag: {:?}\n\tCartridge Type: {:?}\n\tROM Size: {:?}\n\tRAM Size: {:?}\n\tDestination Code: {:?}\n\tOld Licensee Code: {:?}\n\tMask ROM Version Number: {:?}\n\tHeader Checksum: {:?}\n\tGlobal Checksum: {:?}\n}}",
             self.entry,
-            self.nintendo_logo,
             self.title,
             self.manufacturer_code,
             self.cgb_flag,
@@ -81,6 +77,12 @@ impl Display for CartridgeHeader {
         )
     }
 }
+
+const NINTENDO_LOGO: [u8; 48] = [
+    0xCE, 0xED, 0x66, 0x66, 0xCC, 0x0D, 0x00, 0x0B, 0x03, 0x73, 0x00, 0x83, 0x00, 0x0C, 0x00, 0x0D,
+    0x00, 0x08, 0x11, 0x1F, 0x88, 0x89, 0x00, 0x0E, 0xDC, 0xCC, 0x6E, 0xE6, 0xDD, 0xDD, 0xD9, 0x99,
+    0xBB, 0xBB, 0x67, 0x63, 0x6E, 0x0E, 0xEC, 0xCC, 0xDD, 0xDC, 0x99, 0x9F, 0xBB, 0xB9, 0x33, 0x3E,
+];
 
 impl CartridgeHeader {
     fn read_file(path: &Path) -> Result<Vec<u8>, CartridgeError> {
@@ -105,7 +107,13 @@ impl CartridgeHeader {
         let mut data = vec![];
 
         match file.read_to_end(&mut data) {
-            Ok(_) => Ok(data),
+            Ok(_) => {
+                if data[0x104..0x134] != NINTENDO_LOGO {
+                    return Err(CartridgeError::InvalidNintendoLogo);
+                }
+
+                Ok(data)
+            }
             Err(_) => Err(CartridgeError::InvalidFile),
         }
     }
@@ -139,14 +147,12 @@ impl CartridgeHeader {
         let data = CartridgeHeader::read_file(path)?;
 
         let mut entry = [0u8; 4];
-        let mut nintendo_logo = [0u8; 48];
         let mut title = [0u8; 16];
         let mut manufacturer_code = [0u8; 4];
         let mut new_licensee_code = [0u8; 2];
         let mut global_checksum = [0u8; 2];
 
         entry.copy_from_slice(&data[0x100..0x104]);
-        nintendo_logo.copy_from_slice(&data[0x104..0x134]);
         title.copy_from_slice(&data[0x134..0x144]);
         manufacturer_code.copy_from_slice(&data[0x13F..0x143]);
         new_licensee_code.copy_from_slice(&data[0x144..0x146]);
@@ -154,7 +160,6 @@ impl CartridgeHeader {
 
         let cartridge_header = CartridgeHeader {
             entry,
-            nintendo_logo,
             title,
             manufacturer_code,
             cgb_flag: match data[0x143] {

@@ -123,20 +123,20 @@ impl Registers {
         }
     }
 
-    pub fn set_flags(&mut self, zero: bool, subtract: bool, half_carry: bool, carry: bool) {
-        if zero {
+    pub fn set_flags(&mut self, flags: Flags) {
+        if flags.zero {
             self.data[5] |= ZERO_FLAG;
         }
 
-        if subtract {
+        if flags.subtract {
             self.data[5] |= SUBTRACT_FLAG;
         }
 
-        if half_carry {
+        if flags.half_carry {
             self.data[5] |= HALF_CARRY_FLAG;
         }
 
-        if carry {
+        if flags.carry {
             self.data[5] |= CARRY_FLAG;
         }
     }
