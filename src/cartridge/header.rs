@@ -60,6 +60,8 @@ pub struct CartridgeHeader {
     pub mask_rom_version_number: u8,
     pub header_checksum: u8,
     pub global_checksum: [u8; 2],
+
+    pub data: Vec<u8>,
 }
 
 impl Display for CartridgeHeader {
@@ -93,24 +95,7 @@ const NINTENDO_LOGO: [u8; 48] = [
 
 impl Into<Vec<u8>> for CartridgeHeader {
     fn into(self) -> Vec<u8> {
-        let mut data = vec![];
-
-        data.extend_from_slice(&self.entry);
-        data.extend_from_slice(&self.title);
-        data.extend_from_slice(&self.manufacturer_code);
-        data.push(self.cgb_flag.unwrap_or(0));
-        data.extend_from_slice(&self.new_licensee_code);
-        data.push(self.sgb_flag);
-        data.push(self.cartridge_type);
-        data.push(self.rom_size);
-        data.push(self.ram_size);
-        data.push(self.destination_code);
-        data.push(self.old_licensee_code);
-        data.push(self.mask_rom_version_number);
-        data.push(self.header_checksum);
-        data.extend_from_slice(&self.global_checksum);
-
-        data
+        self.data
     }
 }
 
@@ -191,6 +176,8 @@ impl CartridgeHeader {
         new_licensee_code.copy_from_slice(&data[0x144..0x146]);
         global_checksum.copy_from_slice(&data[0x14E..0x150]);
 
+        println!("Cartridge size: {} bytes", data.len());
+
         let cartridge_header = CartridgeHeader {
             entry,
             title,
@@ -209,6 +196,7 @@ impl CartridgeHeader {
             mask_rom_version_number: data[0x14C],
             header_checksum: data[0x14D],
             global_checksum,
+            data,
         };
 
         // if !CartridgeHeader::header_checksum(data.as_slice(), &cartridge_header.header_checksum) {
@@ -218,8 +206,6 @@ impl CartridgeHeader {
         // if !CartridgeHeader::global_checksum(data.as_slice(), &global_checksum) {
         //     return Err(CartridgeError::BadChecksum(ChecksumType::Global));
         // }
-
-        println!("Cartridge size: {} bytes", data.len());
 
         Ok(cartridge_header)
     }

@@ -28,6 +28,6 @@ fn main() -> Result<(), Box<CartridgeError>> {
     loop {
         cpu.step();
 
-        std::io::stdin().read_line(&mut String::new()).unwrap();
+        // std::io::stdin().read_line(&mut String::new()).unwrap();
     }
 }

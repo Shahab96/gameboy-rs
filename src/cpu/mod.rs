@@ -629,7 +629,7 @@ impl CPU {
                 if self.evaluate_condition(condition) {
                     self.jr()
                 } else {
-                    self.pc += 2;
+                    self.pc += 1;
                 }
             }
             Instruction::CALL => self.call(),
