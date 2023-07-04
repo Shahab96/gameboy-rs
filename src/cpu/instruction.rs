@@ -1,5 +1,12 @@
 use super::registers::{Reg16, Reg8};
 
+pub enum Condition {
+    NZ,
+    Z,
+    NC,
+    C,
+}
+
 pub enum Instruction {
     // 8 bit loads
     LDRR(Reg8, Reg8),
@@ -19,13 +26,15 @@ pub enum Instruction {
     LDHLDECA,
     LDAHLINC,
     LDHLINCA,
+
     // 16 bit loads
     LD16NN(Reg16),
     LDNNSP,
     LDSPHL,
     PUSH(Reg16),
     POP(Reg16),
-    // Others
+
+    // 8-bit Arithmetic
     ADD(Reg8),
     ADDHL,
     ADDNN,
@@ -54,23 +63,51 @@ pub enum Instruction {
     INCHL,
     DEC(Reg8),
     DECHL,
-    CCF,
-    SCF,
     RRA,
     RLA,
     RRCA,
     RLCA,
-    CPL,
-    BIT(u8, Reg8),
-    SET(u8, Reg8),
-    SRL(Reg8),
     RR(Reg8),
     RL(Reg8),
     RLC(Reg8),
     RRC(Reg8),
+
+    // Control Flow
+    BIT(u8, Reg8),
+    SET(u8, Reg8),
+    RESET(u8, Reg8),
+    SWAP(Reg8),
+    SRL(Reg8),
     SRA(Reg8),
     SLA(Reg8),
-    SWAP(Reg8),
+    CALL,
+    CALLCC(Condition),
+    JP,
+    JPCC(Condition),
+    JPHL,
+    JR,
+    JRCC(Condition),
+    RET,
+    RETCC(Condition),
+    RETI,
+    RST(u8),
+
+    // 16-bit Arithmetic
+    ADDHLR16(Reg16),
+    ADDSPE,
+    DEC16(Reg16),
+    INC16(Reg16),
+
+    // Misc Instructions
+    CPL,
+    CCF,
+    SCF,
+    DAA,
+    DI,
+    EI,
+    HALT,
+    STOP,
+    NOP,
 }
 
 impl Instruction {
@@ -274,15 +311,69 @@ impl Instruction {
             0x17 => Some(Instruction::RLA),
             0x0f => Some(Instruction::RRCA),
             0x1f => Some(Instruction::RRA),
-            // 16-bit ALU
-            // TODO: Add 16-bit ALU
+
+            // 16-bit Arithmetic
+            0x09 => Some(Instruction::ADDHLR16(Reg16::BC)),
+            0x19 => Some(Instruction::ADDHLR16(Reg16::DE)),
+            0x29 => Some(Instruction::ADDHLR16(Reg16::HL)),
+            0x39 => Some(Instruction::ADDHLR16(Reg16::SP)),
+            0xe8 => Some(Instruction::ADDSPE),
+            0x03 => Some(Instruction::INC16(Reg16::BC)),
+            0x13 => Some(Instruction::INC16(Reg16::DE)),
+            0x23 => Some(Instruction::INC16(Reg16::HL)),
+            0x33 => Some(Instruction::INC16(Reg16::SP)),
+            0x0b => Some(Instruction::DEC16(Reg16::BC)),
+            0x1b => Some(Instruction::DEC16(Reg16::DE)),
+            0x2b => Some(Instruction::DEC16(Reg16::HL)),
+            0x3b => Some(Instruction::DEC16(Reg16::SP)),
 
             // Control
-            // TODO: Add control
+            0xc3 => Some(Instruction::JP),
+            0xe9 => Some(Instruction::JPHL),
+            0x18 => Some(Instruction::JR),
+            0xcd => Some(Instruction::CALL),
+            0xc9 => Some(Instruction::RET),
+            0xd9 => Some(Instruction::RETI),
+            0xc2 => Some(Instruction::JPCC(Condition::NZ)),
+            0xca => Some(Instruction::JPCC(Condition::Z)),
+            0xd2 => Some(Instruction::JPCC(Condition::NC)),
+            0xda => Some(Instruction::JPCC(Condition::C)),
+            0x20 => Some(Instruction::JRCC(Condition::NZ)),
+            0x28 => Some(Instruction::JRCC(Condition::Z)),
+            0x30 => Some(Instruction::JRCC(Condition::NC)),
+            0x38 => Some(Instruction::JRCC(Condition::C)),
+            0xc4 => Some(Instruction::CALLCC(Condition::NZ)),
+            0xcc => Some(Instruction::CALLCC(Condition::Z)),
+            0xd4 => Some(Instruction::CALLCC(Condition::NC)),
+            0xdc => Some(Instruction::CALLCC(Condition::C)),
+            0xc0 => Some(Instruction::RETCC(Condition::NZ)),
+            0xc8 => Some(Instruction::RETCC(Condition::Z)),
+            0xd0 => Some(Instruction::RETCC(Condition::NC)),
+            0xd8 => Some(Instruction::RETCC(Condition::C)),
+            0xc7 => Some(Instruction::RST(0x00)),
+            0xcf => Some(Instruction::RST(0x08)),
+            0xd7 => Some(Instruction::RST(0x10)),
+            0xdf => Some(Instruction::RST(0x18)),
+            0xe7 => Some(Instruction::RST(0x20)),
+            0xef => Some(Instruction::RST(0x28)),
+            0xf7 => Some(Instruction::RST(0x30)),
+            0xff => Some(Instruction::RST(0x38)),
 
             // Misc
-            // TODO: Add misc
-            _ => None,
+            0x76 => Some(Instruction::HALT),
+            0x10 => Some(Instruction::STOP),
+            0xf3 => Some(Instruction::DI),
+            0xfb => Some(Instruction::EI),
+            0x3f => Some(Instruction::CCF),
+            0x37 => Some(Instruction::SCF),
+            0x00 => Some(Instruction::NOP),
+            0x27 => Some(Instruction::DAA),
+            0x2f => Some(Instruction::CPL),
+
+            // Undefined opcodes
+            0xd3 | 0xdb | 0xdd | 0xe3 | 0xe4 | 0xeb | 0xec | 0xed | 0xf4 | 0xfc | 0xfd | _ => {
+                panic!("Undefined opcode: {:#04x}", byte)
+            }
         }
     }
 }

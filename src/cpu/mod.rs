@@ -5,12 +5,14 @@ pub mod registers;
 use crate::memory::bus::MemoryBus;
 
 use self::alu::ALU;
-use self::instruction::Instruction;
+use self::instruction::{Condition, Instruction};
 use self::registers::{Flags, Reg16, Reg8, Registers};
 
 struct CPU {
     // Program counter
     pc: u16,
+
+    ime: bool,
 
     alu: ALU,
     registers: Registers,
@@ -21,6 +23,7 @@ impl CPU {
     pub fn new(&self) -> CPU {
         CPU {
             pc: 0,
+            ime: false,
             alu: ALU {},
             registers: Registers::new(),
             bus: MemoryBus::new(),
@@ -40,7 +43,7 @@ impl CPU {
 
     fn execute(&mut self, instruction: Instruction) -> u16 {
         match instruction {
-            // 8-bit loads
+            // Load instructions
             Instruction::LDRR(target, source) => {
                 let value = self.registers.read(source);
                 self.registers.write(target, value);
@@ -149,8 +152,6 @@ impl CPU {
                 self.registers.write(Reg8::A, value);
                 self.pc.wrapping_add(1)
             }
-
-            // 16-bit loads
             Instruction::LD16NN(target) => {
                 let lower_byte = self.pc.wrapping_add(1);
                 self.pc = lower_byte;
@@ -180,13 +181,7 @@ impl CPU {
                 let data = self.registers.read16(target);
                 let addr = self.registers.read16(Reg16::SP);
 
-                let lower_byte = data as u8;
-                let upper_byte = (data >> 8) as u8;
-
-                self.registers.write16(Reg16::SP, addr.wrapping_sub(1));
-                self.bus.write_byte(addr, upper_byte);
-                self.registers.write16(Reg16::SP, addr.wrapping_sub(1));
-                self.bus.write_byte(addr, lower_byte);
+                self.push_16(data, addr);
 
                 self.pc.wrapping_add(1)
             }
@@ -206,7 +201,7 @@ impl CPU {
                 self.pc.wrapping_add(1)
             }
 
-            // 8-bit Arithmetic
+            // 8-bit Arithmetic and Logical Operations
             Instruction::ADD(target) => {
                 let a = self.registers.read(Reg8::A);
                 let b = self.registers.read(target);
@@ -481,16 +476,55 @@ impl CPU {
                 self.bus.write_byte(addr, result);
                 self.pc.wrapping_add(1)
             }
-            Instruction::CCF => self.ccf(),
-            Instruction::SCF => self.scf(),
+
+            // 16-bit Arithmetic and Logical Operations
+            Instruction::ADDHLR16(target) => {
+                let a = self.registers.read16(Reg16::HL);
+                let b = self.registers.read16(target);
+                let (result, flags) = self.alu.add16(a, b);
+
+                self.registers.set_flags(flags);
+                self.registers.write16(Reg16::HL, result);
+                self.pc.wrapping_add(1)
+            }
+            Instruction::ADDSPE => {
+                let a = self.registers.read16(Reg16::SP);
+                let b: u16 = 0xE8;
+                let (result, flags) = self.alu.add16(a, b);
+
+                self.registers.set_flags(flags);
+                self.registers.write16(Reg16::SP, result);
+                self.pc.wrapping_add(1)
+            }
+            Instruction::INC16(target) => {
+                let a = self.registers.read16(target);
+                let result = a.wrapping_add(1);
+
+                self.registers.write16(target, result);
+                self.pc.wrapping_add(1)
+            }
+            Instruction::DEC16(target) => {
+                let a = self.registers.read16(target);
+                let result = a.wrapping_sub(1);
+
+                self.registers.write16(target, result);
+                self.pc.wrapping_add(1)
+            }
+
+            // Bit Operations
+            Instruction::BIT(bit, target) => self.bit(bit, target),
+            Instruction::SET(bit, target) => self.set(bit, target),
+            Instruction::RESET(bit, target) => self.reset(bit, target),
+            Instruction::SWAP(target) => self.swap(target),
+
+            // Bit Shifts
+            Instruction::SRL(target) => self.srl(target),
+            Instruction::SRA(target) => self.sra(target),
+            Instruction::SLA(target) => self.sla(target),
             Instruction::RRA => self.rra(),
             Instruction::RLA => self.rla(),
             Instruction::RRCA => self.rrca(),
             Instruction::RLCA => self.rlca(),
-            Instruction::CPL => self.cpl(),
-            Instruction::BIT(bit, target) => self.bit(bit, target),
-            Instruction::SET(bit, target) => self.set(bit, target),
-            Instruction::SRL(target) => self.srl(target),
             Instruction::RR(target) => {
                 let carry = self.registers.get_flags().carry as u8;
                 let a = self.registers.read(target);
@@ -525,9 +559,73 @@ impl CPU {
                 self.registers.write(target, result);
                 self.pc.wrapping_add(1)
             }
-            Instruction::SRA(target) => self.sra(target),
-            Instruction::SLA(target) => self.sla(target),
-            Instruction::SWAP(target) => self.swap(target),
+
+            // Misc Operations
+            Instruction::CCF => self.ccf(),
+            Instruction::SCF => self.scf(),
+            Instruction::CPL => self.cpl(),
+            Instruction::DAA => self.daa(),
+            Instruction::NOP => self.nop(),
+            // Instruction::HALT => self.halt(),
+            Instruction::STOP => self.stop(),
+            Instruction::DI => self.di(),
+            Instruction::EI => self.ei(),
+
+            // Control Operations
+            Instruction::JP => self.jp(),
+            Instruction::JPHL => self.registers.read16(Reg16::HL),
+            Instruction::JPCC(condition) => {
+                if self.evaluate_condition(condition) {
+                    self.jp()
+                } else {
+                    self.pc.wrapping_add(2)
+                }
+            }
+            Instruction::JR => self.jr(),
+            Instruction::JRCC(condition) => {
+                if self.evaluate_condition(condition) {
+                    self.jr()
+                } else {
+                    self.pc.wrapping_add(2)
+                }
+            }
+            Instruction::CALL => self.call(),
+            Instruction::CALLCC(condition) => {
+                if self.evaluate_condition(condition) {
+                    self.call()
+                } else {
+                    self.pc.wrapping_add(2)
+                }
+            }
+            Instruction::RET => self.ret(),
+            Instruction::RETCC(condition) => {
+                if self.evaluate_condition(condition) {
+                    self.ret()
+                } else {
+                    self.pc
+                }
+            }
+            Instruction::RETI => {
+                self.ime = true;
+                self.ret()
+            }
+            Instruction::RST(target) => {
+                let [upper, lower] = self.pc.to_le_bytes();
+                let mut sp = self.registers.read16(Reg16::SP);
+
+                sp = sp.wrapping_sub(1);
+                self.registers.write16(Reg16::SP, sp);
+                self.bus.write_byte(sp, upper);
+
+                sp = sp.wrapping_sub(1);
+                self.registers.write16(Reg16::SP, sp);
+                self.bus.write_byte(sp, lower);
+
+                target as u16
+            }
+            Instruction::HALT => {
+                unimplemented!()
+            }
         }
     }
 
@@ -757,5 +855,120 @@ impl CPU {
         });
         self.registers.write(data, result);
         self.pc.wrapping_add(1)
+    }
+
+    pub fn daa(&mut self) -> u16 {
+        // DAA table in page 110 of the official "Game Boy Programming Manual"
+        let mut flags = self.registers.get_flags();
+        let mut carry = false;
+        let mut a = self.registers.read(Reg8::A);
+
+        if !flags.subtract {
+            if flags.carry || a > 0x99 {
+                a = a.wrapping_add(0x60);
+                carry = true;
+            }
+            if flags.half_carry || a & 0x0f > 0x09 {
+                a = a.wrapping_add(0x06);
+            }
+        } else if flags.carry {
+            carry = true;
+            a = a.wrapping_add(if flags.half_carry { 0x9a } else { 0xa0 });
+        } else if flags.half_carry {
+            a = a.wrapping_add(0xfa);
+        }
+
+        flags.zero = a == 0;
+        flags.half_carry = false;
+        flags.carry = carry;
+
+        self.registers.set_flags(flags);
+        self.pc.wrapping_add(1)
+    }
+
+    pub fn di(&mut self) -> u16 {
+        self.ime = false;
+        self.pc.wrapping_add(1)
+    }
+
+    pub fn ei(&mut self) -> u16 {
+        self.ime = true;
+        self.pc.wrapping_add(1)
+    }
+
+    pub fn nop(&mut self) -> u16 {
+        self.pc.wrapping_add(1)
+    }
+
+    pub fn stop(&mut self) -> u16 {
+        panic!("STOP instruction received");
+    }
+
+    pub fn push_16(&mut self, data: u16, addr: u16) {
+        let [upper_byte, lower_byte] = u16::to_le_bytes(data);
+
+        self.registers.write16(Reg16::SP, addr.wrapping_sub(1));
+        self.bus.write_byte(addr, upper_byte);
+        self.registers.write16(Reg16::SP, addr.wrapping_sub(1));
+        self.bus.write_byte(addr, lower_byte);
+    }
+
+    fn evaluate_condition(&self, condition: Condition) -> bool {
+        match condition {
+            Condition::NZ => !self.registers.get_flags().zero,
+            Condition::Z => self.registers.get_flags().zero,
+            Condition::NC => !self.registers.get_flags().carry,
+            Condition::C => self.registers.get_flags().carry,
+        }
+    }
+
+    fn jp(&self) -> u16 {
+        let lower = self.bus.read_byte(self.pc.wrapping_add(1));
+        let upper = self.bus.read_byte(self.pc.wrapping_add(2));
+
+        u16::from_le_bytes([lower, upper])
+    }
+
+    fn jr(&mut self) -> u16 {
+        self.pc = self.pc.wrapping_add(1);
+        let offset = self.bus.read_byte(self.pc) as i8;
+
+        self.pc.wrapping_add(offset as u16)
+    }
+
+    fn call(&mut self) -> u16 {
+        self.pc = self.pc.wrapping_add(1);
+        let lower = self.bus.read_byte(self.pc);
+        self.pc = self.pc.wrapping_add(1);
+        let upper = self.bus.read_byte(self.pc);
+
+        let mut sp = self.registers.read16(Reg16::SP);
+        sp = sp.wrapping_sub(1);
+        self.registers.write16(Reg16::SP, sp);
+
+        let [upper_byte, lower_byte] = u16::to_le_bytes(self.pc);
+        self.bus.write_byte(sp, upper_byte);
+        sp = sp.wrapping_sub(1);
+        self.registers.write16(Reg16::SP, sp);
+
+        self.bus.write_byte(sp, lower_byte);
+        sp = sp.wrapping_sub(1);
+        self.registers.write16(Reg16::SP, sp);
+
+        u16::from_le_bytes([lower, upper])
+    }
+
+    fn ret(&mut self) -> u16 {
+        let mut sp = self.registers.read16(Reg16::SP);
+        let lower = self.bus.read_byte(sp);
+
+        sp = sp.wrapping_add(1);
+        self.registers.write16(Reg16::SP, sp);
+        let upper = self.bus.read_byte(sp);
+
+        sp = sp.wrapping_add(1);
+        self.registers.write16(Reg16::SP, sp);
+
+        u16::from_le_bytes([lower, upper])
     }
 }
