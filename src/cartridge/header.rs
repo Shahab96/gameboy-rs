@@ -6,11 +6,17 @@ use std::io::Read;
 use std::path::Path;
 
 #[derive(Debug)]
+pub enum ChecksumType {
+    Global,
+    Header,
+}
+
+#[derive(Debug)]
 pub enum CartridgeError {
     InvalidLength,
     InvalidFile,
     InvalidNintendoLogo,
-    BadChecksum,
+    BadChecksum(ChecksumType),
 }
 
 impl From<TryFromSliceError> for CartridgeError {
@@ -26,7 +32,8 @@ impl Display for CartridgeError {
             CartridgeError::InvalidLength => write!(f, "Invalid length"),
             CartridgeError::InvalidFile => write!(f, "Invalid file"),
             CartridgeError::InvalidNintendoLogo => write!(f, "Invalid Nintendo logo"),
-            CartridgeError::BadChecksum => write!(f, "Bad checksum"),
+            CartridgeError::BadChecksum(ChecksumType::Header) => write!(f, "Bad header checksum"),
+            CartridgeError::BadChecksum(ChecksumType::Global) => write!(f, "Bad global checksum"),
         }
     }
 }
@@ -84,6 +91,29 @@ const NINTENDO_LOGO: [u8; 48] = [
     0xBB, 0xBB, 0x67, 0x63, 0x6E, 0x0E, 0xEC, 0xCC, 0xDD, 0xDC, 0x99, 0x9F, 0xBB, 0xB9, 0x33, 0x3E,
 ];
 
+impl Into<Vec<u8>> for CartridgeHeader {
+    fn into(self) -> Vec<u8> {
+        let mut data = vec![];
+
+        data.extend_from_slice(&self.entry);
+        data.extend_from_slice(&self.title);
+        data.extend_from_slice(&self.manufacturer_code);
+        data.push(self.cgb_flag.unwrap_or(0));
+        data.extend_from_slice(&self.new_licensee_code);
+        data.push(self.sgb_flag);
+        data.push(self.cartridge_type);
+        data.push(self.rom_size);
+        data.push(self.ram_size);
+        data.push(self.destination_code);
+        data.push(self.old_licensee_code);
+        data.push(self.mask_rom_version_number);
+        data.push(self.header_checksum);
+        data.extend_from_slice(&self.global_checksum);
+
+        data
+    }
+}
+
 impl CartridgeHeader {
     fn read_file(path: &Path) -> Result<Vec<u8>, CartridgeError> {
         let mut file = match File::open(path) {
@@ -140,6 +170,9 @@ impl CartridgeHeader {
             sum = sum.wrapping_add(data[i] as u16);
         }
 
+        println!("Calculated checksum: {:04X}", sum);
+        println!("Provided checksum: {:04X}", checksum);
+
         sum == checksum
     }
 
@@ -178,13 +211,15 @@ impl CartridgeHeader {
             global_checksum,
         };
 
-        if !CartridgeHeader::header_checksum(data.as_slice(), &cartridge_header.header_checksum) {
-            return Err(CartridgeError::BadChecksum);
-        }
+        // if !CartridgeHeader::header_checksum(data.as_slice(), &cartridge_header.header_checksum) {
+        //     return Err(CartridgeError::BadChecksum(ChecksumType::Header));
+        // }
 
-        if !CartridgeHeader::global_checksum(data.as_slice(), &global_checksum) {
-            return Err(CartridgeError::BadChecksum);
-        }
+        // if !CartridgeHeader::global_checksum(data.as_slice(), &global_checksum) {
+        //     return Err(CartridgeError::BadChecksum(ChecksumType::Global));
+        // }
+
+        println!("Cartridge size: {} bytes", data.len());
 
         Ok(cartridge_header)
     }

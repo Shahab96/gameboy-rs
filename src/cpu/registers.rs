@@ -5,7 +5,7 @@ const SUBTRACT_FLAG: u8 = 0b0100_0000;
 const HALF_CARRY_FLAG: u8 = 0b0010_0000;
 const CARRY_FLAG: u8 = 0b0001_0000;
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Registers {
     // The 8-bit registers
     data: [u8; 8],
@@ -18,7 +18,7 @@ pub struct Flags {
     pub carry: bool,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub enum Reg8 {
     A,
     B,
@@ -44,7 +44,7 @@ pub enum Reg8 {
  * and AND it with 0xFF to get the high byte. Then we need to AND the lower 8 bits with the
  * provided value to get the low byte.
  */
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub enum Reg16 {
     AF,
     BC,

@@ -10,6 +10,8 @@ mod cartridge;
 mod cpu;
 mod memory;
 
+use cpu::CPU;
+
 fn main() -> Result<(), Box<CartridgeError>> {
     let args: Vec<String> = std::env::args().collect();
 
@@ -17,7 +19,16 @@ fn main() -> Result<(), Box<CartridgeError>> {
 
     let cartridge = CartridgeHeader::load(rom_path)?;
 
-    println!("{}", cartridge);
+    // println!("{}", cartridge.into);
 
-    Ok(())
+    let mut cpu = CPU::new();
+    cpu.load_cartridge(cartridge.into());
+
+    // println!("{:?}", cpu);
+
+    loop {
+        cpu.step();
+    }
+
+    // Ok(())
 }

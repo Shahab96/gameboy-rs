@@ -1,5 +1,6 @@
 use super::registers::Flags;
 
+#[derive(Debug)]
 pub struct ALU {}
 
 impl ALU {

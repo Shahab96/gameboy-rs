@@ -1,5 +1,6 @@
 use super::registers::{Reg16, Reg8};
 
+#[derive(Debug)]
 pub enum Condition {
     NZ,
     Z,
@@ -7,6 +8,7 @@ pub enum Condition {
     C,
 }
 
+#[derive(Debug)]
 pub enum Instruction {
     // 8 bit loads
     LDRR(Reg8, Reg8),

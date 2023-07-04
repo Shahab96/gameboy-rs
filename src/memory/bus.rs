@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub struct MemoryBus {
     ram: [u8; 0xFFFF],
 }

@@ -10,7 +10,8 @@ use self::alu::ALU;
 use self::instruction::{Condition, Instruction};
 use self::registers::{Flags, Reg16, Reg8, Registers};
 
-struct CPU {
+#[derive(Debug)]
+pub struct CPU {
     // Program counter
     pc: Wrapping<u16>,
 
@@ -25,10 +26,10 @@ struct CPU {
 }
 
 impl CPU {
-    pub fn new(&self) -> CPU {
+    pub fn new() -> CPU {
         CPU {
             pc: Wrapping(0),
-            sp: Wrapping(0),
+            sp: Wrapping(0xFFFF),
             ime: false,
             alu: ALU {},
             registers: Registers::new(),
@@ -36,9 +37,16 @@ impl CPU {
         }
     }
 
-    fn step(&mut self) {
+    pub fn load_cartridge(&mut self, cartridge: Vec<u8>) {
+        cartridge.iter().enumerate().for_each(|(i, byte)| {
+            self.bus.write_byte(i as u16, *byte);
+        });
+    }
+
+    pub fn step(&mut self) {
         let opcode = self.bus.read_byte(self.pc.0);
         if let Some(instruction) = Instruction::from_byte(opcode) {
+            println!("{:#X}: {:#X} {:?}", self.pc.0, opcode, instruction);
             self.execute(instruction)
         } else {
             panic!("Invalid opcode: {:#X}", opcode);
