@@ -1,25 +1,38 @@
+use crate::utils::traits::Storage;
+
 #[derive(Debug)]
 pub struct MemoryBus {
     ram: [u8; 0xFFFF],
 }
 
+impl Storage<usize, u8> for MemoryBus {
+    fn read(&mut self, src: usize) -> u8 {
+        self.ram[src]
+    }
+
+    fn write(&mut self, dest: usize, value: u8) {
+        self.ram[dest] = value;
+    }
+}
+
+impl Storage<usize, u16> for MemoryBus {
+    fn read(&mut self, src: usize) -> u16 {
+        let lower: u8 = self.read(src);
+        let upper: u8 = self.read(src + 1);
+
+        u16::from_le_bytes([lower, upper])
+    }
+
+    fn write(&mut self, dest: usize, value: u16) {
+        let [lower, upper] = value.to_le_bytes();
+
+        self.write(dest, lower);
+        self.write(dest + 1, upper);
+    }
+}
+
 impl MemoryBus {
     pub fn new() -> Self {
-        Self { ram: [0u8; 0xFFFF] }
-    }
-
-    pub fn read_byte(&self, address: u16) -> u8 {
-        self.ram[address as usize]
-    }
-
-    pub fn write_byte(&mut self, address: u16, value: u8) {
-        self.ram[address as usize] = value;
-    }
-
-    pub fn read_word(&self, lower: u16, upper: u16) -> u16 {
-        let lower = self.read_byte(lower);
-        let upper = self.read_byte(upper);
-
-        ((upper as u16) << 8) | (lower as u16)
+        Self { ram: [0; 0xFFFF] }
     }
 }

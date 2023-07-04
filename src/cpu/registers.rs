@@ -1,3 +1,7 @@
+use std::num::Wrapping;
+
+use crate::{memory::bus::MemoryBus, utils::traits::Storage};
+
 // The operations represented by the following functions are described here:
 // https://gbdev.io/pandocs/CPU_Registers_and_Flags.html#the-flags-register-lower-8-bits-of-af-register
 const ZERO_FLAG: u8 = 0b1000_0000;
@@ -5,8 +9,54 @@ const SUBTRACT_FLAG: u8 = 0b0100_0000;
 const HALF_CARRY_FLAG: u8 = 0b0010_0000;
 const CARRY_FLAG: u8 = 0b0001_0000;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug)]
+pub struct ProgramCounter {
+    pub pointer: Wrapping<u16>,
+}
+
+impl Storage<&mut MemoryBus, u16> for ProgramCounter {
+    fn read(&mut self, src: &mut MemoryBus) -> u16 {
+        let addr = self.pointer.0 as usize;
+        let data: u8 = src.read(addr);
+
+        self.pointer += 1;
+
+        data as u16
+    }
+
+    fn write(&mut self, _: &mut MemoryBus, value: u16) {
+        self.pointer.0 = value;
+    }
+}
+
+#[derive(Debug)]
+pub struct StackPointer {
+    pub pointer: Wrapping<u16>,
+}
+
+impl Storage<&mut MemoryBus, u16> for StackPointer {
+    fn read(&mut self, src: &mut MemoryBus) -> u16 {
+        let data: u8 = src.read(self.pointer.0 as usize);
+
+        self.pointer += 2;
+
+        data as u16
+    }
+
+    fn write(&mut self, dest: &mut MemoryBus, value: u16) {
+        self.pointer -= 2;
+        dest.write(self.pointer.0 as usize, value);
+    }
+}
+
+#[derive(Debug)]
 pub struct Registers {
+    // Program Counter
+    pub pc: ProgramCounter,
+
+    // Stack pointer
+    pub sp: StackPointer,
+
     // The 8-bit registers
     data: [u8; 8],
 }
@@ -50,16 +100,11 @@ pub enum Reg16 {
     BC,
     DE,
     HL,
-    SP,
 }
 
-impl Registers {
-    pub fn new() -> Self {
-        Self { data: [0; 8] }
-    }
-
-    pub fn read(&self, register: Reg8) -> u8 {
-        match register {
+impl Storage<Reg8, u8> for Registers {
+    fn read(&mut self, src: Reg8) -> u8 {
+        match src {
             Reg8::A => self.data[0],
             Reg8::B => self.data[1],
             Reg8::C => self.data[2],
@@ -71,52 +116,70 @@ impl Registers {
         }
     }
 
-    pub fn read16(&self, register: Reg16) -> u16 {
-        match register {
-            Reg16::AF => ((self.data[0] as u16) << 8) | (self.data[5] as u16),
-            Reg16::BC => ((self.data[1] as u16) << 8) | (self.data[2] as u16),
-            Reg16::DE => ((self.data[3] as u16) << 8) | (self.data[4] as u16),
-            Reg16::HL => ((self.data[6] as u16) << 8) | (self.data[7] as u16),
-            Reg16::SP => panic!("SP is not to be used for this register"),
-        }
-    }
-
-    pub fn write(&mut self, register: Reg8, value: u8) {
-        match register {
+    fn write(&mut self, dest: Reg8, value: u8) {
+        match dest {
             Reg8::A => self.data[0] = value,
             Reg8::B => self.data[1] = value,
             Reg8::C => self.data[2] = value,
             Reg8::D => self.data[3] = value,
             Reg8::E => self.data[4] = value,
-            Reg8::F => self.data[5] = value,
+            Reg8::F => panic!("Attempted a direct write to the F register!"),
             Reg8::H => self.data[6] = value,
             Reg8::L => self.data[7] = value,
         }
     }
+}
 
-    pub fn write16(&mut self, register: Reg16, value: u16) {
-        match register {
+impl Storage<Reg16, u16> for Registers {
+    fn read(&mut self, src: Reg16) -> u16 {
+        match src {
+            Reg16::AF => u16::from_le_bytes([self.data[0], self.data[5]]),
+            Reg16::BC => u16::from_le_bytes([self.data[1], self.data[2]]),
+            Reg16::DE => u16::from_le_bytes([self.data[3], self.data[4]]),
+            Reg16::HL => u16::from_le_bytes([self.data[6], self.data[7]]),
+        }
+    }
+
+    fn write(&mut self, dest: Reg16, value: u16) {
+        let [high, low] = value.to_le_bytes();
+
+        match dest {
             Reg16::AF => {
-                self.data[0] = ((value & 0xFF00) >> 8) as u8;
-                self.data[5] = (value & 0x00FF) as u8;
+                self.data[0] = high;
+                self.data[5] = low;
             }
             Reg16::BC => {
-                self.data[1] = ((value & 0xFF00) >> 8) as u8;
-                self.data[2] = (value & 0x00FF) as u8;
+                self.data[1] = high;
+                self.data[2] = low;
             }
             Reg16::DE => {
-                self.data[3] = ((value & 0xFF00) >> 8) as u8;
-                self.data[4] = (value & 0x00FF) as u8;
+                self.data[3] = high;
+                self.data[4] = low;
             }
             Reg16::HL => {
-                self.data[6] = ((value & 0xFF00) >> 8) as u8;
-                self.data[7] = (value & 0x00FF) as u8;
+                self.data[6] = high;
+                self.data[7] = low;
             }
-            Reg16::SP => panic!("SP is not to be used for this register"),
+        }
+    }
+}
+
+impl Registers {
+    pub fn new() -> Self {
+        Self {
+            sp: StackPointer {
+                pointer: Wrapping(0xFFFF),
+            },
+            pc: ProgramCounter {
+                pointer: Wrapping(0x100),
+            },
+            data: [0; 8],
         }
     }
 
     pub fn set_flags(&mut self, flags: Flags) {
+        self.data[5] = 0;
+
         if flags.zero {
             self.data[5] |= ZERO_FLAG;
         }

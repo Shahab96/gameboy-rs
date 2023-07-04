@@ -31,6 +31,7 @@ pub enum Instruction {
 
     // 16 bit loads
     LD16NN(Reg16),
+    LD16SP,
     LDNNSP,
     LDSPHL,
     PUSH(Reg16),
@@ -107,9 +108,12 @@ pub enum Instruction {
 
     // 16-bit Arithmetic
     ADDHLR16(Reg16),
+    ADDHLRSP,
     ADDSPE,
     DEC16(Reg16),
     INC16(Reg16),
+    DEC16SP,
+    INC16SP,
 
     // Misc Instructions
     CPL,
@@ -221,7 +225,7 @@ impl Instruction {
             0x01 => Some(Instruction::LD16NN(Reg16::BC)),
             0x11 => Some(Instruction::LD16NN(Reg16::DE)),
             0x21 => Some(Instruction::LD16NN(Reg16::HL)),
-            0x31 => Some(Instruction::LD16NN(Reg16::SP)),
+            0x31 => Some(Instruction::LD16SP),
             0x08 => Some(Instruction::LDNNSP),
             0xf9 => Some(Instruction::LDSPHL),
             // 0xf8 => self.load16_hl_sp_e(ctx),
@@ -332,16 +336,16 @@ impl Instruction {
             0x09 => Some(Instruction::ADDHLR16(Reg16::BC)),
             0x19 => Some(Instruction::ADDHLR16(Reg16::DE)),
             0x29 => Some(Instruction::ADDHLR16(Reg16::HL)),
-            0x39 => Some(Instruction::ADDHLR16(Reg16::SP)),
+            0x39 => Some(Instruction::ADDHLRSP),
             0xe8 => Some(Instruction::ADDSPE),
             0x03 => Some(Instruction::INC16(Reg16::BC)),
             0x13 => Some(Instruction::INC16(Reg16::DE)),
             0x23 => Some(Instruction::INC16(Reg16::HL)),
-            0x33 => Some(Instruction::INC16(Reg16::SP)),
+            0x33 => Some(Instruction::INC16SP),
             0x0b => Some(Instruction::DEC16(Reg16::BC)),
             0x1b => Some(Instruction::DEC16(Reg16::DE)),
             0x2b => Some(Instruction::DEC16(Reg16::HL)),
-            0x3b => Some(Instruction::DEC16(Reg16::SP)),
+            0x3b => Some(Instruction::DEC16SP),
 
             // Control
             0xc3 => Some(Instruction::JP),

@@ -9,8 +9,11 @@ use crate::cartridge::header::CartridgeHeader;
 mod cartridge;
 mod cpu;
 mod memory;
+mod utils;
 
 use cpu::CPU;
+use memory::bus::MemoryBus;
+use utils::traits::Storage;
 
 fn main() -> Result<(), Box<CartridgeError>> {
     let args: Vec<String> = std::env::args().collect();
@@ -19,11 +22,13 @@ fn main() -> Result<(), Box<CartridgeError>> {
 
     let cartridge: Vec<u8> = CartridgeHeader::load(rom_path)?.into();
 
-    let mut cpu = CPU::new();
+    let mut memory_bus = MemoryBus::new();
 
     for (i, byte) in cartridge.iter().enumerate() {
-        cpu.bus.write_byte(i as u16, *byte);
+        memory_bus.write(i, *byte);
     }
+
+    let mut cpu = CPU::new(&mut memory_bus);
 
     loop {
         cpu.step();
