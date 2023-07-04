@@ -626,6 +626,19 @@ impl CPU {
             Instruction::HALT => {
                 unimplemented!()
             }
+
+            // Prefix Operations
+            Instruction::PREFIXCB => {
+                self.pc = self.pc.wrapping_add(1);
+                let opcode = self.bus.read_byte(self.pc);
+
+                self.pc = self.pc.wrapping_add(1);
+                if let Some(instruction) = Instruction::from_byte_prefixed(opcode) {
+                    self.execute(instruction)
+                } else {
+                    panic!("Invalid instruction: {:02X}{:02X}", 0xcb, opcode)
+                }
+            }
         }
     }
 
@@ -774,6 +787,7 @@ impl CPU {
             half_carry: true,
             carry,
         });
+        self.registers.write(data, a);
         self.pc.wrapping_add(1)
     }
 
