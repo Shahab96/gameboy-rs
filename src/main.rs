@@ -23,10 +23,11 @@ fn main() -> Result<(), Box<CartridgeError>> {
 
     for (i, byte) in cartridge.iter().enumerate() {
         cpu.bus.write_byte(i as u16, *byte);
-        println!("Writing {:02X} to {:04X}", byte, i)
     }
 
     loop {
         cpu.step();
+
+        std::io::stdin().read_line(&mut String::new()).unwrap();
     }
 }

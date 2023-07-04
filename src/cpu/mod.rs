@@ -3,8 +3,6 @@ pub mod instruction;
 pub mod registers;
 
 use std::num::Wrapping;
-use std::thread::sleep;
-use std::time::Duration;
 
 use crate::memory::bus::MemoryBus;
 
@@ -30,7 +28,7 @@ pub struct CPU {
 impl CPU {
     pub fn new() -> CPU {
         CPU {
-            pc: Wrapping(0),
+            pc: Wrapping(0x0100),
             sp: Wrapping(0xFFFF),
             ime: false,
             alu: ALU {},
@@ -41,10 +39,10 @@ impl CPU {
 
     pub fn step(&mut self) {
         let opcode = self.bus.read_byte(self.pc.0);
+        self.pc += 1;
         if let Some(instruction) = Instruction::from_byte(opcode) {
             println!("{:#X}: {:#X} {:?}", self.pc.0, opcode, instruction);
             self.execute(instruction);
-            sleep(Duration::from_millis(100));
         } else {
             panic!("Invalid opcode: {:#X}", opcode);
         };
@@ -56,53 +54,44 @@ impl CPU {
             Instruction::LDRR(target, source) => {
                 let value = self.registers.read(source);
                 self.registers.write(target, value);
-                self.pc += 1;
             }
             Instruction::LDRN(target) => {
-                self.pc += 1;
                 let value = self.bus.read_byte(self.pc.0);
-                self.registers.write(target, value);
                 self.pc += 1;
+                self.registers.write(target, value);
             }
             Instruction::LDRHL(target) => {
                 let addr = self.registers.read16(Reg16::HL);
                 let value = self.bus.read_byte(addr);
                 self.registers.write(target, value);
-                self.pc += 1;
             }
             Instruction::LDHLR(source) => {
                 let addr = self.registers.read16(Reg16::HL);
                 let value = self.registers.read(source);
                 self.bus.write_byte(addr, value);
-                self.pc += 1;
             }
             Instruction::LDHLN => {
-                self.pc += 1;
                 let addr = self.registers.read16(Reg16::HL);
                 let value = self.bus.read_byte(self.pc.0);
-                self.bus.write_byte(addr, value);
                 self.pc += 1;
+                self.bus.write_byte(addr, value);
             }
             Instruction::LDA16(source) => {
                 let addr = self.registers.read16(source);
                 let value = self.bus.read_byte(addr);
                 self.registers.write(Reg8::A, value);
-                self.pc += 1;
             }
             Instruction::LD16A(target) => {
                 let addr = self.registers.read16(target);
                 let value = self.registers.read(Reg8::A);
                 self.bus.write_byte(addr, value);
-                self.pc += 1;
             }
             Instruction::LDANN => {
-                self.pc += 1;
                 let value = self.bus.read_byte(self.pc.0);
-                self.registers.write(Reg8::A, value);
                 self.pc += 1;
+                self.registers.write(Reg8::A, value);
             }
             Instruction::LDNNA => {
-                self.pc += 1;
                 let value = self.registers.read(Reg8::A);
                 self.bus.write_byte(self.pc.0, value);
                 self.pc += 1;
@@ -111,55 +100,47 @@ impl CPU {
                 let addr = 0xFF00 | self.registers.read(Reg8::C) as u16;
                 let value = self.bus.read_byte(addr);
                 self.registers.write(Reg8::A, value);
-                self.pc += 1;
             }
             Instruction::LDHCA => {
                 let addr = 0xFF00 | self.registers.read(Reg8::C) as u16;
                 let value = self.registers.read(Reg8::A);
                 self.bus.write_byte(addr, value);
-                self.pc += 1;
             }
             Instruction::LDHAN => {
-                self.pc += 1;
                 let addr = 0xFF00 | self.bus.read_byte(self.pc.0) as u16;
+                self.pc += 1;
                 let value = self.bus.read_byte(addr);
                 self.registers.write(Reg8::A, value);
-                self.pc += 1;
             }
             Instruction::LDHNA => {
-                self.pc += 1;
                 let addr = 0xFF00 | self.bus.read_byte(self.pc.0) as u16;
+                self.pc += 1;
                 let value = self.registers.read(Reg8::A);
                 self.bus.write_byte(addr, value);
-                self.pc += 1;
             }
             Instruction::LDHLDECA => {
                 let addr = self.registers.read16(Reg16::HL);
                 let value = self.registers.read(Reg8::A);
                 self.bus.write_byte(addr, value);
                 self.registers.write16(Reg16::HL, addr.wrapping_sub(1));
-                self.pc += 1;
             }
             Instruction::LDHLINCA => {
                 let addr = self.registers.read16(Reg16::HL);
                 let value = self.registers.read(Reg8::A);
                 self.bus.write_byte(addr, value);
                 self.registers.write16(Reg16::HL, addr.wrapping_add(1));
-                self.pc += 1;
             }
             Instruction::LDAHLDEC => {
                 let addr = self.registers.read16(Reg16::HL);
                 let value = self.bus.read_byte(addr);
                 self.registers.write16(Reg16::HL, addr.wrapping_sub(1));
                 self.registers.write(Reg8::A, value);
-                self.pc += 1;
             }
             Instruction::LDAHLINC => {
                 let addr = self.registers.read16(Reg16::HL);
                 let value = self.bus.read_byte(addr);
                 self.registers.write16(Reg16::HL, addr.wrapping_add(1));
                 self.registers.write(Reg8::A, value);
-                self.pc += 1;
             }
             Instruction::LD16NN(target) => {
                 let lower_byte = self.pc.0;
@@ -182,12 +163,10 @@ impl CPU {
             Instruction::LDSPHL => {
                 let data = self.registers.read16(Reg16::HL);
                 self.sp.0 = data;
-                self.pc += 1;
             }
             Instruction::PUSH(target) => {
                 let data = self.registers.read16(target);
                 self.push_16(data);
-                self.pc += 1;
             }
             Instruction::POP(target) => {
                 let lower_byte = self.bus.read_byte(self.sp.0);
@@ -197,8 +176,6 @@ impl CPU {
 
                 let data = ((upper_byte as u16) << 8) | lower_byte as u16;
                 self.registers.write16(target, data);
-
-                self.pc += 1;
             }
 
             // 8-bit Arithmetic and Logical Operations
@@ -209,7 +186,6 @@ impl CPU {
 
                 self.registers.set_flags(flags);
                 self.registers.write(Reg8::A, result);
-                self.pc += 1;
             }
             Instruction::ADDHL => {
                 let addr = self.registers.read16(Reg16::HL);
@@ -219,16 +195,15 @@ impl CPU {
 
                 self.registers.set_flags(flags);
                 self.registers.write(Reg8::A, result);
-                self.pc += 1;
             }
             Instruction::ADDNN => {
                 let a = self.registers.read(Reg8::A);
                 let b = self.bus.read_byte(self.pc.0);
+                self.pc += 1;
                 let (result, flags) = self.alu.add(a, b);
 
                 self.registers.set_flags(flags);
                 self.registers.write(Reg8::A, result);
-                self.pc += 1;
             }
             Instruction::ADC(target) => {
                 let a = self.registers.read(Reg8::A);
@@ -238,7 +213,6 @@ impl CPU {
 
                 self.registers.set_flags(flags);
                 self.registers.write(Reg8::A, result);
-                self.pc += 1;
             }
             Instruction::ADCHL => {
                 let addr = self.registers.read16(Reg16::HL);
@@ -249,17 +223,16 @@ impl CPU {
 
                 self.registers.set_flags(flags);
                 self.registers.write(Reg8::A, result);
-                self.pc += 1;
             }
             Instruction::ADCNN => {
                 let a = self.registers.read(Reg8::A);
                 let b = self.bus.read_byte(self.pc.0);
+                self.pc += 1;
                 let carry = self.registers.get_flags().carry as u8;
                 let (result, flags) = self.alu.adc(a, b, carry);
 
                 self.registers.set_flags(flags);
                 self.registers.write(Reg8::A, result);
-                self.pc += 1;
             }
             Instruction::SUB(target) => {
                 let a = self.registers.read(Reg8::A);
@@ -268,7 +241,6 @@ impl CPU {
 
                 self.registers.set_flags(flags);
                 self.registers.write(Reg8::A, result);
-                self.pc += 1;
             }
             Instruction::SUBHL => {
                 let addr = self.registers.read16(Reg16::HL);
@@ -278,16 +250,15 @@ impl CPU {
 
                 self.registers.set_flags(flags);
                 self.registers.write(Reg8::A, result);
-                self.pc += 1;
             }
             Instruction::SUBNN => {
                 let a = self.registers.read(Reg8::A);
                 let b = self.bus.read_byte(self.pc.0);
+                self.pc += 1;
                 let (result, flags) = self.alu.sub(a, b);
 
                 self.registers.set_flags(flags);
                 self.registers.write(Reg8::A, result);
-                self.pc += 1;
             }
             Instruction::SBC(target) => {
                 let a = self.registers.read(Reg8::A);
@@ -297,7 +268,6 @@ impl CPU {
 
                 self.registers.set_flags(flags);
                 self.registers.write(Reg8::A, result);
-                self.pc += 1;
             }
             Instruction::SBCHL => {
                 let addr = self.registers.read16(Reg16::HL);
@@ -308,17 +278,16 @@ impl CPU {
 
                 self.registers.set_flags(flags);
                 self.registers.write(Reg8::A, result);
-                self.pc += 1;
             }
             Instruction::SBCNN => {
                 let a = self.registers.read(Reg8::A);
                 let b = self.bus.read_byte(self.pc.0);
+                self.pc += 1;
                 let carry = self.registers.get_flags().carry as u8;
                 let (result, flags) = self.alu.sbc(a, b, carry);
 
                 self.registers.set_flags(flags);
                 self.registers.write(Reg8::A, result);
-                self.pc += 1;
             }
             Instruction::AND(target) => self.and(target),
             Instruction::ANDHL => {
@@ -335,11 +304,11 @@ impl CPU {
 
                 self.registers.set_flags(flags);
                 self.registers.write(Reg8::A, result);
-                self.pc += 1;
             }
             Instruction::ANDNN => {
                 let a = self.registers.read(Reg8::A);
                 let b = self.bus.read_byte(self.pc.0);
+                self.pc += 1;
                 let result = a & b;
                 let flags = Flags {
                     zero: result == 0,
@@ -350,7 +319,6 @@ impl CPU {
 
                 self.registers.set_flags(flags);
                 self.registers.write(Reg8::A, result);
-                self.pc += 1;
             }
             Instruction::OR(target) => self.or(target),
             Instruction::ORHL => {
@@ -367,11 +335,11 @@ impl CPU {
 
                 self.registers.set_flags(flags);
                 self.registers.write(Reg8::A, result);
-                self.pc += 1;
             }
             Instruction::ORNN => {
                 let a = self.registers.read(Reg8::A);
                 let b = self.bus.read_byte(self.pc.0);
+                self.pc += 1;
                 let result = a | b;
                 let flags = Flags {
                     zero: result == 0,
@@ -382,7 +350,6 @@ impl CPU {
 
                 self.registers.set_flags(flags);
                 self.registers.write(Reg8::A, result);
-                self.pc += 1;
             }
             Instruction::XOR(target) => self.xor(target),
             Instruction::XORHL => {
@@ -399,11 +366,11 @@ impl CPU {
 
                 self.registers.set_flags(flags);
                 self.registers.write(Reg8::A, result);
-                self.pc += 1;
             }
             Instruction::XORNN => {
                 let a = self.registers.read(Reg8::A);
                 let b = self.bus.read_byte(self.pc.0);
+                self.pc += 1;
                 let result = a ^ b;
                 let flags = Flags {
                     zero: result == 0,
@@ -414,7 +381,6 @@ impl CPU {
 
                 self.registers.set_flags(flags);
                 self.registers.write(Reg8::A, result);
-                self.pc += 1;
             }
             Instruction::CP(target) => self.cp(target, Reg8::A),
             Instruction::CPHL => {
@@ -424,15 +390,14 @@ impl CPU {
                 let (_, flags) = self.alu.sub(a, b);
 
                 self.registers.set_flags(flags);
-                self.pc += 1;
             }
             Instruction::CPNN => {
                 let a = self.registers.read(Reg8::A);
                 let b = self.bus.read_byte(self.pc.0);
+                self.pc += 1;
                 let (_, flags) = self.alu.sub(a, b);
 
                 self.registers.set_flags(flags);
-                self.pc += 1;
             }
             Instruction::INC(target) => {
                 let a = self.registers.read(target);
@@ -440,7 +405,6 @@ impl CPU {
 
                 self.registers.set_flags(flags);
                 self.registers.write(target, result);
-                self.pc += 1;
             }
             Instruction::INCHL => {
                 let addr = self.registers.read16(Reg16::HL);
@@ -449,7 +413,6 @@ impl CPU {
 
                 self.registers.set_flags(flags);
                 self.bus.write_byte(addr, result);
-                self.pc += 1;
             }
             Instruction::DEC(target) => {
                 let a = self.registers.read(target);
@@ -457,7 +420,6 @@ impl CPU {
 
                 self.registers.set_flags(flags);
                 self.registers.write(target, result);
-                self.pc += 1;
             }
             Instruction::DECHL => {
                 let addr = self.registers.read16(Reg16::HL);
@@ -466,7 +428,6 @@ impl CPU {
 
                 self.registers.set_flags(flags);
                 self.bus.write_byte(addr, result);
-                self.pc += 1;
             }
 
             // 16-bit Arithmetic and Logical Operations
@@ -477,7 +438,6 @@ impl CPU {
 
                 self.registers.set_flags(flags);
                 self.registers.write16(Reg16::HL, result);
-                self.pc += 1;
             }
             Instruction::ADDSPE => {
                 let a = self.sp.0;
@@ -486,21 +446,18 @@ impl CPU {
 
                 self.registers.set_flags(flags);
                 self.sp.0 = result;
-                self.pc += 1;
             }
             Instruction::INC16(target) => {
                 let a = self.registers.read16(target);
                 let result = a.wrapping_add(1);
 
                 self.registers.write16(target, result);
-                self.pc += 1;
             }
             Instruction::DEC16(target) => {
                 let a = self.registers.read16(target);
                 let result = a.wrapping_sub(1);
 
                 self.registers.write16(target, result);
-                self.pc += 1;
             }
 
             // Bit Operations
@@ -515,183 +472,135 @@ impl CPU {
             }
             Instruction::SET(bit, target) => {
                 let mut data = self.registers.read(target);
-                let step = self.set(bit, &mut data);
+                self.set(bit, &mut data);
                 self.registers.write(target, data);
-
-                step
             }
             Instruction::SETHL(bit) => {
                 let addr = self.registers.read16(Reg16::HL);
                 let mut data = self.bus.read_byte(addr);
-                let step = self.set(bit, &mut data);
+                self.set(bit, &mut data);
                 self.bus.write_byte(addr, data);
-
-                step
             }
             Instruction::RESET(bit, target) => {
                 let mut data = self.registers.read(target);
-                let step = self.reset(bit, &mut data);
                 self.reset(bit, &mut data);
-
-                step
+                self.reset(bit, &mut data);
             }
             Instruction::RESETHL(bit) => {
                 let addr = self.registers.read16(Reg16::HL);
                 let mut data = self.bus.read_byte(addr);
-                let step = self.reset(bit, &mut data);
+                self.reset(bit, &mut data);
                 self.bus.write_byte(addr, data);
-
-                step
             }
             Instruction::SWAP(target) => {
                 let mut data = self.registers.read(target);
-                let step = self.swap(&mut data);
+                self.swap(&mut data);
                 self.registers.write(target, data);
-
-                step
             }
             Instruction::SWAPHL => {
                 let addr = self.registers.read16(Reg16::HL);
                 let mut data = self.bus.read_byte(addr);
-                let step = self.swap(&mut data);
+                self.swap(&mut data);
                 self.bus.write_byte(addr, data);
-
-                step
             }
 
             // Bit Shifts
             Instruction::SRL(target) => {
                 let mut data = self.registers.read(target);
-                let step = self.srl(&mut data);
-
+                self.srl(&mut data);
                 self.registers.write(target, data);
-                step
             }
             Instruction::SRLHL => {
                 let addr = self.registers.read16(Reg16::HL);
                 let mut data = self.bus.read_byte(addr);
-                let step = self.srl(&mut data);
-
+                self.srl(&mut data);
                 self.bus.write_byte(addr, data);
-                step
             }
             Instruction::SRA(target) => {
                 let mut data = self.registers.read(target);
-                let step = self.sra(&mut data);
-
+                self.sra(&mut data);
                 self.registers.write(target, data);
-                step
             }
             Instruction::SRAHL => {
                 let addr = self.registers.read16(Reg16::HL);
                 let mut data = self.bus.read_byte(addr);
-                let step = self.sra(&mut data);
-
+                self.sra(&mut data);
                 self.bus.write_byte(addr, data);
-                step
             }
             Instruction::SLA(target) => {
                 let mut data = self.registers.read(target);
-                let step = self.sla(&mut data);
-
+                self.sla(&mut data);
                 self.registers.write(target, data);
-                step
             }
             Instruction::SLAHL => {
                 let addr = self.registers.read16(Reg16::HL);
                 let mut data = self.bus.read_byte(addr);
-                let step = self.sla(&mut data);
-
+                self.sla(&mut data);
                 self.bus.write_byte(addr, data);
-                step
             }
             Instruction::RRA => {
                 let mut data = self.registers.read(Reg8::A);
-                let step = self.rr(&mut data);
-
+                self.rr(&mut data);
                 self.registers.write(Reg8::A, data);
-                step
             }
             Instruction::RLA => {
                 let mut data = self.registers.read(Reg8::A);
-                let step = self.rl(&mut data);
-
+                self.rl(&mut data);
                 self.registers.write(Reg8::A, data);
-                step
             }
             Instruction::RRCA => {
                 let mut data = self.registers.read(Reg8::A);
-                let step = self.rrc(&mut data);
-
+                self.rrc(&mut data);
                 self.registers.write(Reg8::A, data);
-                step
             }
             Instruction::RLCA => {
                 let mut data = self.registers.read(Reg8::A);
-                let step = self.rlc(&mut data);
-
+                self.rlc(&mut data);
                 self.registers.write(Reg8::A, data);
-                step
             }
             Instruction::RR(target) => {
                 let mut data = self.registers.read(target);
-                let step = self.rr(&mut data);
-
+                self.rr(&mut data);
                 self.registers.write(target, data);
-                step
             }
             Instruction::RL(target) => {
                 let mut data = self.registers.read(target);
-                let step = self.rl(&mut data);
-
+                self.rl(&mut data);
                 self.registers.write(target, data);
-                step
             }
             Instruction::RRC(target) => {
                 let mut data = self.registers.read(target);
-                let step = self.rrc(&mut data);
-
+                self.rrc(&mut data);
                 self.registers.write(target, data);
-                step
             }
             Instruction::RLC(target) => {
                 let mut data = self.registers.read(target);
-                let step = self.rlc(&mut data);
-
+                self.rlc(&mut data);
                 self.registers.write(target, data);
-                step
             }
             Instruction::RRHL => {
                 let addr = self.registers.read16(Reg16::HL);
                 let mut data = self.bus.read_byte(addr);
-                let step = self.rr(&mut data);
-
+                self.rr(&mut data);
                 self.bus.write_byte(addr, data);
-                step
             }
             Instruction::RLHL => {
                 let addr = self.registers.read16(Reg16::HL);
                 let mut data = self.bus.read_byte(addr);
-                let step = self.rl(&mut data);
-
+                self.rl(&mut data);
                 self.bus.write_byte(addr, data);
-                step
             }
             Instruction::RRCHL => {
                 let addr = self.registers.read16(Reg16::HL);
                 let mut data = self.bus.read_byte(addr);
-                let step = self.rrc(&mut data);
-
+                self.rrc(&mut data);
                 self.bus.write_byte(addr, data);
-                step
             }
             Instruction::RLCHL => {
                 let addr = self.registers.read16(Reg16::HL);
                 let mut data = self.bus.read_byte(addr);
-                let step = self.rlc(&mut data);
-
+                self.rlc(&mut data);
                 self.bus.write_byte(addr, data);
-                step
             }
 
             // Misc Operations
@@ -776,7 +685,6 @@ impl CPU {
         let (_, flags) = self.alu.sub(a, b);
 
         self.registers.set_flags(flags);
-        self.pc += 1;
     }
 
     fn and(&mut self, data: Reg8) {
@@ -792,7 +700,6 @@ impl CPU {
 
         self.registers.set_flags(flags);
         self.registers.write(Reg8::A, result);
-        self.pc += 1;
     }
 
     fn or(&mut self, data: Reg8) {
@@ -808,7 +715,6 @@ impl CPU {
 
         self.registers.set_flags(flags);
         self.registers.write(Reg8::A, result);
-        self.pc += 1;
     }
 
     fn xor(&mut self, data: Reg8) {
@@ -824,7 +730,6 @@ impl CPU {
 
         self.registers.set_flags(flags);
         self.registers.write(Reg8::A, result);
-        self.pc += 1;
     }
 
     fn ccf(&mut self) {
@@ -836,7 +741,6 @@ impl CPU {
             half_carry: false,
             carry: !carry,
         });
-        self.pc += 1;
     }
 
     fn scf(&mut self) {
@@ -848,7 +752,6 @@ impl CPU {
             half_carry: false,
             carry: true,
         });
-        self.pc += 1;
     }
 
     fn rr(&mut self, data: &mut u8) {
@@ -858,7 +761,6 @@ impl CPU {
         *data = result;
 
         self.registers.set_flags(flags);
-        self.pc += 1;
     }
 
     fn rl(&mut self, data: &mut u8) {
@@ -868,7 +770,6 @@ impl CPU {
         *data = result;
 
         self.registers.set_flags(flags);
-        self.pc += 1;
     }
 
     fn rrc(&mut self, data: &mut u8) {
@@ -877,7 +778,6 @@ impl CPU {
         *data = result;
 
         self.registers.set_flags(flags);
-        self.pc += 1;
     }
 
     fn rlc(&mut self, data: &mut u8) {
@@ -886,7 +786,6 @@ impl CPU {
         *data = result;
 
         self.registers.set_flags(flags);
-        self.pc += 1;
     }
 
     fn cpl(&mut self) {
@@ -901,7 +800,6 @@ impl CPU {
         });
 
         self.registers.write(Reg8::A, result);
-        self.pc += 1;
     }
 
     fn bit(&mut self, bit: u8, data: u8) {
@@ -914,19 +812,14 @@ impl CPU {
             half_carry: true,
             carry,
         });
-        self.pc += 1;
     }
 
     fn reset(&mut self, bit: u8, data: &mut u8) {
         *data = *data & (0 << bit);
-
-        self.pc += 1;
     }
 
     fn set(&mut self, bit: u8, data: &mut u8) {
         *data = *data | (1 << bit);
-
-        self.pc += 1;
     }
 
     fn srl(&mut self, data: &mut u8) {
@@ -940,7 +833,6 @@ impl CPU {
             half_carry: false,
             carry,
         });
-        self.pc += 1;
     }
 
     fn sra(&mut self, data: &mut u8) {
@@ -955,7 +847,6 @@ impl CPU {
             half_carry: false,
             carry,
         });
-        self.pc += 1;
     }
 
     fn sla(&mut self, data: &mut u8) {
@@ -969,7 +860,6 @@ impl CPU {
             half_carry: false,
             carry,
         });
-        self.pc += 1;
     }
 
     fn swap(&mut self, data: &mut u8) {
@@ -982,7 +872,6 @@ impl CPU {
             half_carry: false,
             carry: false,
         });
-        self.pc += 1;
     }
 
     fn daa(&mut self) {
@@ -1011,22 +900,17 @@ impl CPU {
         flags.carry = carry;
 
         self.registers.set_flags(flags);
-        self.pc += 1;
     }
 
     fn di(&mut self) {
         self.ime = false;
-        self.pc += 1;
     }
 
     fn ei(&mut self) {
         self.ime = true;
-        self.pc += 1;
     }
 
-    fn nop(&mut self) {
-        self.pc += 1;
-    }
+    fn nop(&mut self) {}
 
     fn stop(&mut self) {
         panic!("STOP instruction received");
@@ -1054,6 +938,7 @@ impl CPU {
         let lower = self.bus.read_byte(self.pc.0);
         self.pc += 1;
         let upper = self.bus.read_byte(self.pc.0);
+        self.pc += 1;
 
         self.pc.0 = u16::from_le_bytes([lower, upper]);
     }
