@@ -652,9 +652,6 @@ impl Instruction {
             0xae => Some(Instruction::RESETHL(5)),
             0xb6 => Some(Instruction::RESETHL(6)),
             0xbe => Some(Instruction::RESETHL(7)),
-            _ => {
-                panic!("Undefined opcode: {:#04x}{:#04x}", 0xcb, byte)
-            }
         }
     }
 }
