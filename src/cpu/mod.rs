@@ -3,6 +3,8 @@ pub mod instruction;
 pub mod registers;
 
 use std::num::Wrapping;
+use std::thread::sleep;
+use std::time::Duration;
 
 use crate::memory::bus::MemoryBus;
 
@@ -22,7 +24,7 @@ pub struct CPU {
 
     alu: ALU,
     registers: Registers,
-    bus: MemoryBus,
+    pub bus: MemoryBus,
 }
 
 impl CPU {
@@ -37,17 +39,12 @@ impl CPU {
         }
     }
 
-    pub fn load_cartridge(&mut self, cartridge: Vec<u8>) {
-        cartridge.iter().enumerate().for_each(|(i, byte)| {
-            self.bus.write_byte(i as u16, *byte);
-        });
-    }
-
     pub fn step(&mut self) {
         let opcode = self.bus.read_byte(self.pc.0);
         if let Some(instruction) = Instruction::from_byte(opcode) {
             println!("{:#X}: {:#X} {:?}", self.pc.0, opcode, instruction);
-            self.execute(instruction)
+            self.execute(instruction);
+            sleep(Duration::from_millis(100));
         } else {
             panic!("Invalid opcode: {:#X}", opcode);
         };
@@ -745,7 +742,7 @@ impl CPU {
                 self.ret()
             }
             Instruction::RST(target) => {
-                let [upper, lower] = self.pc.0.to_le_bytes();
+                let [lower, upper] = self.pc.0.to_le_bytes();
 
                 self.sp -= 1;
                 self.bus.write_byte(self.sp.0, upper);
@@ -1036,7 +1033,7 @@ impl CPU {
     }
 
     fn push_16(&mut self, data: u16) {
-        let [high, low] = u16::to_le_bytes(data);
+        let [low, high] = u16::to_le_bytes(data);
 
         self.sp -= 1;
         self.bus.write_byte(self.sp.0, high);
@@ -1063,6 +1060,7 @@ impl CPU {
 
     fn jr(&mut self) {
         let offset = self.bus.read_byte(self.pc.0) as i8;
+        self.pc += 1;
 
         if offset < 0 {
             self.pc -= (-offset) as u16;
@@ -1072,14 +1070,15 @@ impl CPU {
     }
 
     fn call(&mut self) {
-        let high = self.bus.read_byte(self.pc.0);
+        let lower = self.bus.read_byte(self.pc.0);
         self.pc += 1;
-        let low = self.bus.read_byte(self.pc.0);
-
-        let data = u16::from_le_bytes([high, low]);
-
-        self.push_16(data);
+        let upper = self.bus.read_byte(self.pc.0);
         self.pc += 1;
+
+        let data = u16::from_le_bytes([lower, upper]);
+
+        self.push_16(self.pc.0);
+        self.pc.0 = data;
     }
 
     fn ret(&mut self) {

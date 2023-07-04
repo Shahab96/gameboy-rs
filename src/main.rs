@@ -17,18 +17,16 @@ fn main() -> Result<(), Box<CartridgeError>> {
 
     let rom_path = Path::new(&args[1]);
 
-    let cartridge = CartridgeHeader::load(rom_path)?;
-
-    // println!("{}", cartridge.into);
+    let cartridge: Vec<u8> = CartridgeHeader::load(rom_path)?.into();
 
     let mut cpu = CPU::new();
-    cpu.load_cartridge(cartridge.into());
 
-    // println!("{:?}", cpu);
+    for (i, byte) in cartridge.iter().enumerate() {
+        cpu.bus.write_byte(i as u16, *byte);
+        println!("Writing {:02X} to {:04X}", byte, i)
+    }
 
     loop {
         cpu.step();
     }
-
-    // Ok(())
 }
