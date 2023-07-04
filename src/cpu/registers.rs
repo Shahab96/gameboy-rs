@@ -7,9 +7,6 @@ const CARRY_FLAG: u8 = 0b0001_0000;
 
 #[derive(Copy, Clone)]
 pub struct Registers {
-    // Stack Pointer
-    sp: u16,
-
     // The 8-bit registers
     data: [u8; 8],
 }
@@ -58,10 +55,7 @@ pub enum Reg16 {
 
 impl Registers {
     pub fn new() -> Self {
-        Self {
-            sp: 0,
-            data: [0; 8],
-        }
+        Self { data: [0; 8] }
     }
 
     pub fn read(&self, register: Reg8) -> u8 {
@@ -83,7 +77,7 @@ impl Registers {
             Reg16::BC => ((self.data[1] as u16) << 8) | (self.data[2] as u16),
             Reg16::DE => ((self.data[3] as u16) << 8) | (self.data[4] as u16),
             Reg16::HL => ((self.data[6] as u16) << 8) | (self.data[7] as u16),
-            Reg16::SP => self.sp,
+            Reg16::SP => panic!("SP is not to be used for this register"),
         }
     }
 
@@ -118,7 +112,7 @@ impl Registers {
                 self.data[6] = ((value & 0xFF00) >> 8) as u8;
                 self.data[7] = (value & 0x00FF) as u8;
             }
-            Reg16::SP => self.sp = value,
+            Reg16::SP => panic!("SP is not to be used for this register"),
         }
     }
 
