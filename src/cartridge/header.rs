@@ -155,8 +155,8 @@ impl CartridgeHeader {
             sum = sum.wrapping_add(data[i] as u16);
         }
 
-        println!("Calculated checksum: {:04X}", sum);
-        println!("Provided checksum: {:04X}", checksum);
+        dbg!("Calculated checksum: {:04X}", sum);
+        dbg!("Provided checksum: {:04X}", checksum);
 
         sum == checksum
     }
@@ -176,7 +176,7 @@ impl CartridgeHeader {
         new_licensee_code.copy_from_slice(&data[0x144..0x146]);
         global_checksum.copy_from_slice(&data[0x14E..0x150]);
 
-        println!("Cartridge size: {} bytes", data.len());
+        dbg!("Cartridge size: {} bytes", data.len());
 
         let cartridge_header = CartridgeHeader {
             entry,

@@ -58,9 +58,11 @@ impl CPU<'_> {
         }
 
         if let Some(instruction) = Instruction::from_byte(opcode) {
-            println!(
+            dbg!(
                 "{:#X}: {:#X} {:?}",
-                self.registers.pc.pointer.0, opcode, instruction
+                self.registers.pc.pointer.0,
+                opcode,
+                &instruction
             );
             self.execute(instruction);
         } else {
@@ -641,7 +643,7 @@ impl CPU<'_> {
             Instruction::DAA => self.daa(),
             Instruction::NOP => self.nop(),
             Instruction::HALT => {
-                println!("halted @ 0x{:04X}", self.registers.pc.pointer.0);
+                dbg!("halted @ 0x{:04X}", self.registers.pc.pointer.0);
                 self.mode = Mode::Halted;
             }
             Instruction::STOP => self.stop(),
