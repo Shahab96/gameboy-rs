@@ -176,6 +176,14 @@ impl CartridgeHeader {
         new_licensee_code.copy_from_slice(&data[0x144..0x146]);
         global_checksum.copy_from_slice(&data[0x14E..0x150]);
 
+        if !CartridgeHeader::header_checksum(data.as_slice(), &data[0x14D]) {
+            return Err(CartridgeError::BadChecksum(ChecksumType::Header));
+        }
+
+        if !CartridgeHeader::global_checksum(data.as_slice(), &global_checksum) {
+            return Err(CartridgeError::BadChecksum(ChecksumType::Global));
+        }
+
         dbg!("Cartridge size: {} bytes", data.len());
 
         let cartridge_header = CartridgeHeader {
@@ -198,14 +206,6 @@ impl CartridgeHeader {
             global_checksum,
             data,
         };
-
-        // if !CartridgeHeader::header_checksum(data.as_slice(), &cartridge_header.header_checksum) {
-        //     return Err(CartridgeError::BadChecksum(ChecksumType::Header));
-        // }
-
-        // if !CartridgeHeader::global_checksum(data.as_slice(), &global_checksum) {
-        //     return Err(CartridgeError::BadChecksum(ChecksumType::Global));
-        // }
 
         Ok(cartridge_header)
     }
