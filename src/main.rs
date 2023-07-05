@@ -2,13 +2,12 @@
 
 use std::path::Path;
 
-use crate::cartridge::header::{CartridgeError, CartridgeHeader};
-
 mod cartridge;
 mod cpu;
 mod memory;
 mod utils;
 
+use cartridge::header::{CartridgeError, CartridgeHeader};
 use cpu::CPU;
 use memory::bus::MemoryBus;
 use utils::traits::Storage;
