@@ -40,6 +40,7 @@ fn main() -> Result<(), Box<CartridgeError>> {
     loop {
         cpu.step();
 
+        // // Uncomment to step through the program
         // std::io::stdin().read_line(&mut String::new()).unwrap();
     }
 }
