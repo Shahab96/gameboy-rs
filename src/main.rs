@@ -2,9 +2,7 @@
 
 use std::path::Path;
 
-use cartridge::header::CartridgeError;
-
-use crate::cartridge::header::CartridgeHeader;
+use crate::cartridge::header::{CartridgeError, CartridgeHeader};
 
 mod cartridge;
 mod cpu;
