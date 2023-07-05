@@ -9,11 +9,19 @@ use crate::memory::bus::MemoryBus;
 use crate::utils::traits::Storage;
 
 #[derive(Debug)]
+pub enum Mode {
+    Halted,
+    Running,
+    InterruptDispatch,
+}
+
+#[derive(Debug)]
 pub struct CPU<'a> {
     ime: bool,
     alu: ALU,
     registers: Registers,
     bus: &'a mut MemoryBus,
+    mode: Mode,
 }
 
 impl CPU<'_> {
@@ -23,11 +31,32 @@ impl CPU<'_> {
             ime: false,
             alu: ALU {},
             registers: Registers::new(),
+            mode: Mode::Running,
         }
+    }
+
+    fn check_interrupt_requests(&mut self) -> u8 {
+        let interrupt_requests: u8 = self.bus.read(0xFF0F as usize);
+        let interrupt_enable: u8 = self.bus.read(0xFFFF as usize);
+
+        interrupt_requests & interrupt_enable & 0x1F
     }
 
     pub fn step(&mut self) {
         let opcode = self.registers.pc.read(&mut self.bus) as u8;
+
+        match self.mode {
+            Mode::Halted => {
+                let interrupt_requests = self.check_interrupt_requests();
+                if interrupt_requests != 0 {
+                    self.mode = Mode::InterruptDispatch;
+                }
+                return;
+            }
+            Mode::Running => (),
+            Mode::InterruptDispatch => unimplemented!(),
+        }
+
         if let Some(instruction) = Instruction::from_byte(opcode) {
             println!(
                 "{:#X}: {:#X} {:?}",
@@ -611,7 +640,10 @@ impl CPU<'_> {
             Instruction::CPL => self.cpl(),
             Instruction::DAA => self.daa(),
             Instruction::NOP => self.nop(),
-            // Instruction::HALT => self.halt(),
+            Instruction::HALT => {
+                println!("halted @ 0x{:04X}", self.registers.pc.pointer.0);
+                self.mode = Mode::Halted;
+            }
             Instruction::STOP => self.stop(),
             Instruction::DI => self.di(),
             Instruction::EI => self.ei(),
@@ -661,9 +693,6 @@ impl CPU<'_> {
                     .write(&mut self.bus, self.registers.pc.pointer.0);
 
                 self.registers.pc.pointer.0 = target.into();
-            }
-            Instruction::HALT => {
-                unimplemented!()
             }
 
             // Prefix Operations

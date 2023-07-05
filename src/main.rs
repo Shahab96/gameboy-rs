@@ -18,6 +18,13 @@ use utils::traits::Storage;
 fn main() -> Result<(), Box<CartridgeError>> {
     let args: Vec<String> = std::env::args().collect();
 
+    match args.len() {
+        2 => {
+            println!("Usage: {} <rom_path>", args[1]);
+        }
+        _ => panic!("Invalid number of arguments"),
+    }
+
     let rom_path = Path::new(&args[1]);
 
     let cartridge: Vec<u8> = CartridgeHeader::load(rom_path)?.into();
