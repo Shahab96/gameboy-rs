@@ -1,5 +1,6 @@
 use super::{Bank, BankError};
 
+#[derive(Debug)]
 pub struct RomBanks {
     active_bank: u16,
     pub banks: Vec<[u8; 0x4000]>,
@@ -21,14 +22,13 @@ impl RomBanks {
 }
 
 impl Bank for RomBanks {
-    fn swap_bank(&mut self, bank: u16) -> Result<(), BankError> {
+    fn swap_bank(&mut self, bank: u16) {
         if bank < 1 || bank > self.banks.len() as u16 {
-            return Err(BankError::InvalidBank(bank));
+            self.active_bank = bank & (self.banks.len() as u16 - 1);
+            dbg!("Invalid bank selected, wrapping to {}", self.active_bank);
+        } else {
+            self.active_bank = bank;
         }
-
-        self.active_bank = bank;
-
-        Ok(())
     }
 
     fn read(&self, address: u16) -> Result<u8, BankError> {

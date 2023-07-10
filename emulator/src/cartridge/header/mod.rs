@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -12,7 +14,9 @@ pub enum CartridgeError {
     InvalidGlobalChecksum { expected: u16, actual: u16 },
 }
 
+#[derive(Debug)]
 pub struct CartridgeHeader {
+    pub entry: [u8; 4],
     pub title: String,
     pub manufacturer_code: String,
     pub cgb_flag: u8,
@@ -37,12 +41,13 @@ impl CartridgeHeader {
         }
 
         let header_checksum = data[0x014D];
-        let global_checksum = u16::from_le_bytes([data[0x014E], data[0x014F]]);
+        let global_checksum = u16::from_be_bytes([data[0x014E], data[0x014F]]);
 
         Self::header_checksum(data, header_checksum)?;
         Self::global_checksum(data, global_checksum)?;
 
         Ok(CartridgeHeader {
+            entry: [data[0x0100], data[0x0101], data[0x0102], data[0x0103]],
             title: String::from_utf8(data[0x0134..0x0143].to_vec()).unwrap(),
             manufacturer_code: String::from_utf8(data[0x013F..0x0143].to_vec()).unwrap(),
             cgb_flag: data[0x0143],
@@ -87,7 +92,7 @@ impl CartridgeHeader {
             sum = sum.wrapping_add(data[i] as u16);
         }
 
-        if sum != u16::from_le_bytes([data[0x014E], data[0x014F]]) {
+        if sum != u16::from_be_bytes([data[0x014E], data[0x014F]]) {
             return Err(CartridgeError::InvalidGlobalChecksum {
                 expected: checksum,
                 actual: sum,
@@ -95,5 +100,28 @@ impl CartridgeHeader {
         }
 
         Ok(())
+    }
+}
+
+impl Display for CartridgeHeader {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "CartridgeHeader{{\n\tEntry: {:02X?}\n\tTitle: {:?}\n\tManufacturer Code: {:?}\n\tCGB Flag: {:?}\n\tNew Licensee Code: {:?}\n\tSGB Flag: {:?}\n\tCartridge Type: {:?}\n\tROM Size: {:?}\n\tRAM Size: {:?}\n\tDestination Code: {:?}\n\tOld Licensee Code: {:?}\n\tMask ROM Version Number: {:?}\n\tHeader Checksum: {:?}\n\tGlobal Checksum: {:?}\n}}",
+            self.entry,
+            self.title,
+            self.manufacturer_code,
+            self.cgb_flag,
+            self.new_licensee_code,
+            self.sgb_flag,
+            self.cartridge_type,
+            self.rom_size,
+            self.ram_size,
+            self.destination_code,
+            self.old_licensee_code,
+            self.mask_rom_version_number,
+            self.header_checksum,
+            self.global_checksum,
+        )
     }
 }

@@ -1,5 +1,6 @@
 use super::{Bank, BankError};
 
+#[derive(Debug)]
 pub struct RamBanks {
     active_bank: u8,
     banks: Vec<[u8; 0x2000]>,
@@ -64,13 +65,12 @@ impl Bank for RamBanks {
         Ok(data)
     }
 
-    fn swap_bank(&mut self, bank: u16) -> Result<(), BankError> {
+    fn swap_bank(&mut self, bank: u16) {
         if bank < 1 || bank > self.banks.len() as u16 {
-            return Err(BankError::InvalidBank(bank));
+            self.active_bank = (bank & (self.banks.len() as u16 - 1)) as u8;
+            dbg!("Invalid bank selected, wrapping to {}", self.active_bank);
+        } else {
+            self.active_bank = bank as u8;
         }
-
-        self.active_bank = bank as u8;
-
-        Ok(())
     }
 }
