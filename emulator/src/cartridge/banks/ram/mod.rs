@@ -3,7 +3,7 @@ use super::{Bank, BankError};
 #[derive(Debug)]
 pub struct RamBanks {
     active_bank: u8,
-    banks: Vec<[u8; 0x2000]>,
+    pub banks: Vec<[u8; 0x2000]>,
 }
 
 impl RamBanks {
