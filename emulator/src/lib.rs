@@ -1,14 +1,16 @@
 mod cartridge;
 
+use wasm_bindgen::prelude::wasm_bindgen;
+
 use cartridge::header::CartridgeError;
 use cartridge::Cartridge;
 
-pub fn load_cartridge(data: Vec<u8>) -> Result<Cartridge, CartridgeError> {
-    Cartridge::new(&data)
-}
+#[global_allocator]
+static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
+#[wasm_bindgen]
+pub fn load_cartridge(data: &[u8]) -> Result<Cartridge, CartridgeError> {
+    Cartridge::new(&data)
 }
 
 #[cfg(test)]
@@ -21,7 +23,7 @@ mod tests {
     fn it_works() {
         let path = Path::new("../roms/01-special.gb").to_owned();
         let mut file = std::fs::File::open(path).unwrap();
-        let mut data: Vec<u8> = vec![];
+        let mut data: &[u8] = vec![].as_slice();
 
         file.read_to_end(&mut data).unwrap();
 

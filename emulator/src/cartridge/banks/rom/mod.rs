@@ -1,9 +1,11 @@
-use super::{Bank, BankError};
+use wasm_bindgen::JsValue;
+
+use super::{BankError, MemoryBank};
 
 #[derive(Debug)]
 pub struct RomBanks {
     active_bank: u16,
-    pub banks: Vec<[u8; 0x4000]>,
+    pub banks: Box<[MemoryBank]>,
 }
 
 impl RomBanks {
@@ -16,13 +18,11 @@ impl RomBanks {
 
         Ok(Self {
             active_bank: 1,
-            banks: vec![[0; 0x4000]; num_banks],
+            banks: vec![vec![0; 0x4000]; num_banks],
         })
     }
-}
 
-impl Bank for RomBanks {
-    fn swap_bank(&mut self, bank: u16) {
+    pub fn swap_bank(&mut self, bank: u16) {
         if bank < 1 || bank > self.banks.len() as u16 {
             self.active_bank = bank & (self.banks.len() as u16 - 1);
             dbg!("Invalid bank selected, wrapping to {}", self.active_bank);
@@ -31,7 +31,7 @@ impl Bank for RomBanks {
         }
     }
 
-    fn read(&self, address: u16) -> Result<u8, BankError> {
+    pub fn read(&self, address: u16) -> Result<u8, BankError> {
         let address = address as usize;
 
         if address > 0x3FFF {
@@ -62,6 +62,18 @@ impl From<&[u8]> for RomBanks {
         Self {
             active_bank: 1,
             banks,
+        }
+    }
+}
+
+impl Into<JsValue> for RomBanks {
+    fn into(self) -> JsValue {
+        match serde_wasm_bindgen::to_value(&self) {
+            Ok(value) => value,
+            Err(err) => {
+                dbg!(err);
+                JsValue::UNDEFINED
+            }
         }
     }
 }

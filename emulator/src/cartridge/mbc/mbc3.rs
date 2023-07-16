@@ -1,6 +1,9 @@
+use wasm_bindgen::prelude::wasm_bindgen;
+use wasm_bindgen::JsValue;
+
 use super::super::banks::ram::RamBanks;
 use super::super::banks::rom::RomBanks;
-use super::super::banks::{Bank, BankError};
+use super::super::banks::BankError;
 use super::super::header::CartridgeHeader;
 use super::AddressMapper;
 
@@ -10,7 +13,19 @@ enum WriteMapping {
     Enabled(usize),
 }
 
+impl Into<JsValue> for WriteMapping {
+    fn into(self) -> JsValue {
+        match self {
+            WriteMapping::Disabled => JsValue::from_str("Disabled"),
+            WriteMapping::Enabled(map_state) => {
+                JsValue::from_str(&format!("Enabled({})", map_state))
+            }
+        }
+    }
+}
+
 #[derive(Debug)]
+#[wasm_bindgen]
 pub struct MBC3 {
     rom_banks: RomBanks,
     ram_banks: Option<RamBanks>,
@@ -18,8 +33,8 @@ pub struct MBC3 {
     rtc: bool,
     write_mapping: WriteMapping,
     bank_or_rtc_select: u8,
-    clock_registers: [u8; 5],
-    latched_clock_registers: [u8; 5],
+    clock_registers: Box<[u8]>,
+    latched_clock_registers: Box<[u8]>,
     active_clock_register: usize,
 }
 
@@ -165,5 +180,34 @@ impl AddressMapper for MBC3 {
                 }
             },
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cartridge::Cartridge;
+    use std::{io::Read, path::Path};
+
+    const ROM_PATH: &str = "../../../../roms/01-special.gb";
+
+    fn setup() -> MBC3 {
+        let path = Path::new(ROM_PATH).to_owned();
+        let mut file = std::fs::File::open(path).unwrap();
+        let mut data: Vec<u8> = vec![];
+
+        file.read_to_end(&mut data).unwrap();
+
+        let cartridge = match Cartridge::new(&data) {
+            Ok(cartridge) => cartridge,
+            Err(err) => panic!("Error loading cartridge: {:?}", err),
+        };
+
+        MBC3::new(&cartridge.header, &data)
+    }
+
+    #[test]
+    fn read_no_mapping() {
+        let mbc = setup();
     }
 }

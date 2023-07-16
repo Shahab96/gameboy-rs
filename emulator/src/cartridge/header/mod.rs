@@ -1,6 +1,7 @@
 use std::fmt::Display;
 
 use thiserror::Error;
+use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
 
 #[derive(Error, Debug)]
 pub enum CartridgeError {
@@ -14,9 +15,16 @@ pub enum CartridgeError {
     InvalidGlobalChecksum { expected: u16, actual: u16 },
 }
 
+impl Into<JsValue> for CartridgeError {
+    fn into(self) -> JsValue {
+        JsValue::from_str(self)
+    }
+}
+
 #[derive(Debug)]
+#[wasm_bindgen]
 pub struct CartridgeHeader {
-    pub entry: [u8; 4],
+    pub entry: Box<[u8]>,
     pub title: String,
     pub manufacturer_code: String,
     pub cgb_flag: u8,
@@ -47,7 +55,7 @@ impl CartridgeHeader {
         Self::global_checksum(data, global_checksum)?;
 
         Ok(CartridgeHeader {
-            entry: [data[0x0100], data[0x0101], data[0x0102], data[0x0103]],
+            entry: Box::new([data[0x0100], data[0x0101], data[0x0102], data[0x0103]]),
             title: String::from_utf8(data[0x0134..0x0143].to_vec()).unwrap(),
             manufacturer_code: String::from_utf8(data[0x013F..0x0143].to_vec()).unwrap(),
             cgb_flag: data[0x0143],
